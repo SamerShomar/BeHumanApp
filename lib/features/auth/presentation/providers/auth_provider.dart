@@ -57,6 +57,27 @@ class AuthService {
     return AppUser.fromJson(doc.data()!);
   }
 
+  /// Firebase requires a recent login before a password change, so the current
+  /// password is used to re-authenticate first.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final user = auth.currentUser;
+    final email = user?.email;
+    if (user == null || email == null) {
+      throw FirebaseAuthException(
+        code: 'no-current-user',
+        message: 'No signed-in user to change the password for.',
+      );
+    }
+
+    await user.reauthenticateWithCredential(
+      EmailAuthProvider.credential(email: email, password: currentPassword),
+    );
+    await user.updatePassword(newPassword);
+  }
+
   Future<void> signOut() => auth.signOut();
 }
 

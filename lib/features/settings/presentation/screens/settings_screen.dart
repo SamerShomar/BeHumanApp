@@ -4,8 +4,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:be_human_app/core/languages/app_localizations.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
-import 'package:be_human_app/core/utils/app_mock_data.dart';
 import 'package:be_human_app/core/providers/theme_provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -43,7 +43,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
             SizedBox(height: 12.h),
             ElevatedButton(
-              onPressed: () => _showChangePasswordDialog(context),
+              onPressed: () => _showChangePasswordDialog(context, ref),
               child: Text(AppLocalizations.of(context, 'change_password')),
             ),
             SizedBox(height: 8.h),
@@ -79,13 +79,15 @@ class SettingsScreen extends ConsumerWidget {
             SizedBox(height: 8.h),
             ElevatedButton(
               onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                final router = GoRouter.of(context);
                 try {
-                  final auth = ref.read(authServiceProvider);
-                  await auth.signOut();
-                  // The stream provider will automatically update to null
-                  context.go('/login');
+                  await ref.read(authServiceProvider).signOut();
+                  // The router listens to the auth stream, but navigating
+                  // explicitly avoids leaving a stale route on screen.
+                  router.go('/login');
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     SnackBar(content: Text('خطأ في تسجيل الخروج: ${e.toString()}')),
                   );
                 }
@@ -98,46 +100,94 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showChangePasswordDialog(BuildContext context) {
-    final oldCtrl = TextEditingController();
-    final newCtrl = TextEditingController();
-
-    showDialog(
+  void _showChangePasswordDialog(BuildContext context, WidgetRef ref) {
+    showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('تغيير كلمة المرور'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: oldCtrl, decoration: InputDecoration(labelText: AppLocalizations.of(context, 'old_password')), obscureText: true),
-            TextField(controller: newCtrl, decoration: InputDecoration(labelText: AppLocalizations.of(context, 'new_password')), obscureText: true),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(AppLocalizations.of(context, 'cancel'))),
-          ElevatedButton(
-            onPressed: () {
-              final email = ProviderScope.containerOf(context).read(currentUserStreamProvider).value?.email;
-              if (email == null) {
-                Navigator.of(ctx).pop();
-                return;
-              }
+      builder: (ctx) => _ChangePasswordDialog(ref: ref),
+    );
+  }
+}
 
-              final old = oldCtrl.text;
-              final nw = newCtrl.text;
-              final stored = AppMockData.mockPasswords[email];
-              if (stored != null && stored == old) {
-                AppMockData.mockPasswords[email] = nw;
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context, 'password_updated'))));
-                Navigator.of(ctx).pop();
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context, 'password_invalid'))));
-              }
-            },
-            child: const Text('حفظ'),
+class _ChangePasswordDialog extends StatefulWidget {
+  const _ChangePasswordDialog({required this.ref});
+
+  final WidgetRef ref;
+
+  @override
+  State<_ChangePasswordDialog> createState() => _ChangePasswordDialogState();
+}
+
+class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
+  final _oldCtrl = TextEditingController();
+  final _newCtrl = TextEditingController();
+  bool _isSaving = false;
+
+  @override
+  void dispose() {
+    _oldCtrl.dispose();
+    _newCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final updatedMessage = AppLocalizations.of(context, 'password_updated');
+    final invalidMessage = AppLocalizations.of(context, 'password_invalid');
+
+    setState(() => _isSaving = true);
+    try {
+      await widget.ref.read(authServiceProvider).changePassword(
+            currentPassword: _oldCtrl.text,
+            newPassword: _newCtrl.text,
+          );
+      messenger.showSnackBar(SnackBar(content: Text(updatedMessage)));
+      navigator.pop();
+    } on FirebaseAuthException catch (e) {
+      // A wrong current password surfaces as a failed re-authentication.
+      final message = switch (e.code) {
+        'wrong-password' || 'invalid-credential' => invalidMessage,
+        'weak-password' => 'كلمة المرور الجديدة ضعيفة (6 أحرف على الأقل)',
+        _ => e.message ?? invalidMessage,
+      };
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+      messenger.showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(AppLocalizations.of(context, 'change_password')),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _oldCtrl,
+            decoration: InputDecoration(labelText: AppLocalizations.of(context, 'old_password')),
+            obscureText: true,
+          ),
+          TextField(
+            controller: _newCtrl,
+            decoration: InputDecoration(labelText: AppLocalizations.of(context, 'new_password')),
+            obscureText: true,
           ),
         ],
       ),
+      actions: [
+        TextButton(
+          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+          child: Text(AppLocalizations.of(context, 'cancel')),
+        ),
+        ElevatedButton(
+          onPressed: _isSaving ? null : _submit,
+          child: _isSaving
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              : Text(AppLocalizations.of(context, 'save')),
+        ),
+      ],
     );
   }
 }

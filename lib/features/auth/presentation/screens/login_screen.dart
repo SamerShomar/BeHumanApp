@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:be_human_app/core/utils/connectivity.dart';
 
 import 'package:be_human_app/core/languages/app_localizations.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
@@ -19,22 +19,21 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController(text: 'admin@2026');
-  
+  final _passwordController = TextEditingController();
+
   bool isLoading = false;
   String? errorMessage;
 
-  Future<bool> _checkInternet() async {
-    final connectivityResult = await Connectivity().checkConnectivity();
-    return connectivityResult != ConnectivityResult.none;
-  }
 
   Future<void> _handleLogin() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+
     final email = _emailController.text.trim().toLowerCase();
     final password = _passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(content: Text('البريد الإلكتروني وكلمة المرور مطلوبة')),
       );
       return;
@@ -47,8 +46,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       // Check internet connection first
-      final hasInternet = await _checkInternet();
+      final hasInternet = await hasNetworkConnection();
       if (!hasInternet) {
+        if (!mounted) return;
         setState(() {
           isLoading = false;
           errorMessage = "لا يوجد اتصال بالإنترنت. تأكد من شبكتك.";
@@ -59,49 +59,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final auth = ref.read(authServiceProvider);
       await auth.signIn(email, password);
       // The user will be automatically loaded through the stream provider
-      context.go('/home');
+      router.go('/home');
     } on FirebaseAuthException catch (e) {
-      setState(() {
-        isLoading = false;
-      });
-      
-      if (e.code == 'user-not-found') {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('البريد الإلكتروني غير مسجل')),
-        );
-      } else if (e.code == 'wrong-password') {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('كلمة المرور غير صحيحة')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ في تسجيل الدخول: ${e.message}')),
-        );
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
       }
+
+      // Firebase returns `invalid-credential` instead of `wrong-password` when
+      // email-enumeration protection is enabled, so both map to one message.
+      final message = switch (e.code) {
+        'user-not-found' => 'البريد الإلكتروني غير مسجل',
+        'wrong-password' || 'invalid-credential' => 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
+        'too-many-requests' => 'تم حظر المحاولات مؤقتاً، حاول لاحقاً',
+        _ => 'خطأ في تسجيل الدخول: ${e.message}',
+      };
+      messenger.showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+      messenger.showSnackBar(
         const SnackBar(content: Text('فشل تسجيل الدخول، حاول مرة أخرى')),
-      );
-    }
-  }
-
-  Future<void> _handleTestLogin() async {
-    try {
-      // Test with admin credentials
-      const email = 'admin@behuman.org';
-      const password = 'admin@2026';
-
-      final auth = FirebaseAuth.instance;
-      await auth.signInWithEmailAndPassword(email: email, password: password);
-      
-      // The user will be automatically loaded through the stream provider
-      context.go('/home');
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل تسجيل الدخول التجريبي: ${e.toString()}')),
       );
     }
   }
@@ -172,7 +154,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Image.asset(
-                              'assets/images/logo.png',
+                              'assets/images/logo.PNG',
                               width: 120.w,
                               height: 120.h,
                               fit: BoxFit.contain,
@@ -235,35 +217,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         ),
                                       )
                                     : Text(AppLocalizations.of(context, 'login_button')),
-                              ),
-                            ),
-                            SizedBox(height: 16.h),
-                            Text(
-                              'إذا كان تسجيل الدخول لا يعمل، جرب زر التسجيل التجريبي',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12.sp,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            SizedBox(height: 16.h),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 45.h,
-                              child: OutlinedButton(
-                                onPressed: _handleTestLogin,
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: colorScheme.onSurface,
-                                  side: BorderSide(color: colorScheme.outline),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16.r),
-                                  ),
-                                ),
-                                child: Text(
-                                  'تسجيل دخول تجريبي (admin@behuman.org)',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(fontSize: 12.sp),
-                                ),
                               ),
                             ),
                           ],

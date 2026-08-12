@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:be_human_app/core/utils/connectivity.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 class NoInternetScreen extends ConsumerStatefulWidget {
@@ -14,10 +14,6 @@ class NoInternetScreen extends ConsumerStatefulWidget {
 class _NoInternetScreenState extends ConsumerState<NoInternetScreen> {
   bool _isChecking = false;
 
-  Future<bool> _checkInternet() async {
-    final connectivityResult = await Connectivity().checkConnectivity();
-    return connectivityResult != ConnectivityResult.none;
-  }
 
   Future<void> _retryConnection() async {
     setState(() {
@@ -25,7 +21,7 @@ class _NoInternetScreenState extends ConsumerState<NoInternetScreen> {
     });
 
     try {
-      final hasInternet = await _checkInternet();
+      final hasInternet = await hasNetworkConnection();
       
       if (mounted) {
         setState(() {

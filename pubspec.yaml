@@ -10,7 +10,7 @@ environment:
 flutter:
   assets:
     - assets/
-    - assets/images/logo.png
+    - assets/images/logo.PNG
   uses-material-design: true
 
 dependencies:

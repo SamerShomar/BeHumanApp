@@ -14,15 +14,17 @@ class WebsiteScraper {
       final body = resp.body;
 
       // very light-weight extraction using RegExp (fallback when no html parser available)
+      // `dotAll` is what lets the body span newlines; the character class this
+      // replaced ("[sS]") only ever matched a literal s or S.
       String extractFirst(String tag) {
-        final re = RegExp('<$tag[^>]*>([sS]*?)</$tag>', caseSensitive: false);
+        final re = RegExp('<$tag[^>]*>(.*?)</$tag>', caseSensitive: false, dotAll: true);
         final m = re.firstMatch(body);
         if (m == null) return '';
         return _stripTags(m.group(1) ?? '');
       }
 
       String extractMultiple(String tag, int count) {
-        final re = RegExp('<$tag[^>]*>([sS]*?)</$tag>', caseSensitive: false);
+        final re = RegExp('<$tag[^>]*>(.*?)</$tag>', caseSensitive: false, dotAll: true);
         final matches = re.allMatches(body).take(count).map((m) => _stripTags(m.group(1) ?? '')).toList();
         return matches.join('\n\n');
       }

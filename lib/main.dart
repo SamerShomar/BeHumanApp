@@ -1,64 +1,20 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:be_human_app/core/router/app_router.dart';
 import 'package:be_human_app/core/theme/app_theme.dart';
 import 'package:be_human_app/core/languages/app_localizations.dart';
-import 'package:be_human_app/core/utils/ensure_users.dart';
 import 'package:be_human_app/core/providers/theme_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize Firebase
+
+  // Android reads its configuration from android/app/google-services.json and
+  // iOS from ios/Runner/GoogleService-Info.plist.
   await Firebase.initializeApp();
-  print('Firebase initialized successfully from google-services.json');
-  
-  // Create admin account
-  try {
-    const adminEmail = 'admin@behuman.app';
-    const adminPassword = 'Admin@12345678';
-    
-    final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-      email: adminEmail,
-      password: adminPassword,
-    );
-    
-    if (userCredential.user != null) {
-      print('Admin account created successfully: ${userCredential.user!.email}');
-      
-      // Update user profile
-      await userCredential.user!.updateDisplayName('Administrator');
-      
-      // Send email verification
-      await userCredential.user!.sendEmailVerification();
-      print('Admin email verification sent');
-      
-      // Set admin custom claims (optional)
-      await userCredential.user!.getIdToken(true);
-      print('Admin account setup completed');
-    }
-  } catch (e) {
-    if (e.toString().contains('email-already-in-use')) {
-      print('Admin account already exists');
-    } else {
-      print('Error creating admin account: $e');
-    }
-  }
-  
-  // Only ensure users in debug mode and after successful Firebase initialization
-  if (kDebugMode) {
-    try {
-      await ensureUsers();
-    } catch (e) {
-      print('Error ensuring users: $e');
-    }
-  }
 
   runApp(
     const ProviderScope(
@@ -74,6 +30,7 @@ class BeHumanApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = ref.watch(themeProvider);
     final locale = ref.watch(localeProvider);
+    final router = ref.watch(routerProvider);
 
     return ScreenUtilInit(
       designSize: const Size(390, 844),
@@ -93,7 +50,7 @@ class BeHumanApp extends ConsumerWidget {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          routerConfig: AppRouter.router,
+          routerConfig: router,
           localeResolutionCallback: (locale, supportedLocales) {
             if (locale == null) return supportedLocales.first;
             for (final supportedLocale in supportedLocales) {

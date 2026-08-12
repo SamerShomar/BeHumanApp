@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:be_human_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:be_human_app/features/home/presentation/screens/home_screen.dart';
@@ -12,32 +12,51 @@ import 'package:be_human_app/features/finance/presentation/screens/finance_scree
 import 'package:be_human_app/features/settings/presentation/screens/settings_screen.dart';
 import 'package:be_human_app/features/splash/presentation/screens/splash_screen.dart';
 import 'package:be_human_app/features/no_internet/presentation/screens/no_internet_screen.dart';
+import 'package:be_human_app/features/archive/presentation/screens/archive_screen.dart';
+import 'package:be_human_app/features/admin/presentation/screens/admin_dashboard_screen.dart';
+import 'package:be_human_app/core/languages/app_localizations.dart';
 import 'package:be_human_app/core/providers/auth_state_provider.dart';
 import 'package:be_human_app/core/providers/theme_provider.dart';
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
+import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 
-class AppRouter {
-  static final GoRouter router = GoRouter(
+/// Routes that are reachable without being signed in.
+const _publicRoutes = {'/', '/splash', '/login', '/no-internet'};
+
+/// The router is exposed as a provider so it can react to auth changes:
+/// [refreshListenable] re-runs [GoRouter.redirect] every time the Firebase
+/// auth stream emits, which is what makes sign-in and sign-out navigate on
+/// their own.
+final routerProvider = Provider<GoRouter>((ref) {
+  final authListenable = ValueNotifier<AsyncValue<User?>>(const AsyncLoading());
+  ref.listen<AsyncValue<User?>>(
+    authStateProvider,
+    (_, next) => authListenable.value = next,
+    fireImmediately: true,
+  );
+  ref.onDispose(authListenable.dispose);
+
+  return GoRouter(
     initialLocation: '/',
+    refreshListenable: authListenable,
     redirect: (context, state) {
-      final authState = ProviderScope.containerOf(context).read(authStateProvider);
-      final user = authState.when(
-        data: (user) => user,
-        loading: () => null,
-        error: (error, stack) => null,
-      );
-      final isLoggedIn = user != null;
-      
-      // Non-authenticated users cannot access protected routes
-      if (!isLoggedIn && state.matchedLocation != '/login') {
-        return '/login';
+      final authState = authListenable.value;
+      final location = state.matchedLocation;
+
+      // While the auth stream has not produced its first value yet we cannot
+      // tell signed-in from signed-out, so stay put instead of bouncing the
+      // user to /login on every cold start.
+      if (authState.isLoading) return null;
+
+      final isLoggedIn = authState.valueOrNull != null;
+
+      if (!isLoggedIn) {
+        return _publicRoutes.contains(location) ? null : '/login';
       }
-      
-      // Authenticated users should not be on login screen
-      if (isLoggedIn && state.matchedLocation == '/login') {
-        return '/home';
-      }
-      
+
+      // A signed-in user has no reason to sit on the login screen.
+      if (location == '/login') return '/home';
+
       return null;
     },
     routes: [
@@ -59,16 +78,6 @@ class AppRouter {
         name: 'no-internet',
         builder: (context, state) => const NoInternetScreen(),
       ),
-      GoRoute(
-        path: '/dashboard',
-        name: 'dashboard',
-        builder: (context, state) => const HomeScreen(), // Temporary placeholder for admin dashboard
-      ),
-      GoRoute(
-        path: '/archive',
-        name: 'archive',
-        builder: (context, state) => const HomeScreen(), // Temporary placeholder for archive
-      ),
       ShellRoute(
         builder: (context, state, child) {
           return MainShell(location: state.matchedLocation, child: child);
@@ -88,6 +97,16 @@ class AppRouter {
             path: '/financial',
             name: 'financial',
             builder: (context, state) => const FinanceScreen(),
+          ),
+          GoRoute(
+            path: '/dashboard',
+            name: 'dashboard',
+            builder: (context, state) => const AdminDashboardScreen(),
+          ),
+          GoRoute(
+            path: '/archive',
+            name: 'archive',
+            builder: (context, state) => const ArchiveScreen(),
           ),
           GoRoute(
             path: '/settings',
@@ -115,9 +134,9 @@ class AppRouter {
       ),
     ),
   );
-}
+});
 
-class MainShell extends ConsumerStatefulWidget {
+class MainShell extends ConsumerWidget {
   final String location;
   final Widget child;
 
@@ -127,190 +146,141 @@ class MainShell extends ConsumerStatefulWidget {
     super.key,
   });
 
-  @override
-  ConsumerState<MainShell> createState() => _MainShellState();
-}
-
-class _MainShellState extends ConsumerState<MainShell> {
-  int _selectedIndex = 0;
-  late final List<NavigationItem> _navigationItems;
-  UserRole _userRole = UserRole.member;
-
-  @override
-  void initState() {
-    super.initState();
-    _determineUserRole();
-  }
-
-  Future<void> _determineUserRole() async {
-    final authState = ref.read(authStateProvider);
-    final user = authState.when(
-      data: (user) => user,
-      loading: () => null,
-      error: (error, stack) => null,
+  /// The bottom bar is driven by the signed-in user's role. While the profile
+  /// is still loading the list is empty and no bar is shown, which also keeps
+  /// the shell from rendering a bar for a signed-out user.
+  static List<NavigationItem> _itemsFor(BuildContext context, UserRole role) {
+    final home = NavigationItem(
+      title: AppLocalizations.of(context, 'home_title'),
+      icon: Iconsax.home,
+      route: '/home',
+    );
+    final proposals = NavigationItem(
+      title: AppLocalizations.of(context, 'proposals'),
+      icon: Iconsax.document,
+      route: '/proposals',
+    );
+    final finance = NavigationItem(
+      title: AppLocalizations.of(context, 'financial'),
+      icon: Iconsax.wallet,
+      route: '/financial',
+    );
+    final archive = NavigationItem(
+      title: AppLocalizations.of(context, 'archive'),
+      icon: Iconsax.archive,
+      route: '/archive',
+    );
+    final settings = NavigationItem(
+      title: AppLocalizations.of(context, 'settings'),
+      icon: Iconsax.setting,
+      route: '/settings',
     );
 
-    if (user == null) {
-      setState(() {
-        _navigationItems = [];
-      });
-      return;
-    }
-
-    // Try to get user role from Firestore first
-    try {
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-      
-      if (userDoc.exists) {
-        final userData = userDoc.data();
-        _userRole = UserRole.values.firstWhere(
-          (role) => role.toString() == userData?['role'],
-          orElse: () => UserRole.member,
-        );
-      } else {
-        // If document doesn't exist, create it with default role
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .set({
-          'email': user.email,
-          'role': 'UserRole.member',
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-        _userRole = UserRole.member;
-      }
-    } catch (e) {
-      // On any error, try to get from AppUser provider or fallback to member
-      _userRole = UserRole.member;
-    }
-
-    setState(() {
-      _buildNavigationItems();
-      _setInitialIndex();
-    });
-  }
-
-  void _buildNavigationItems() {
-    switch (_userRole) {
+    switch (role) {
       case UserRole.member:
-        _navigationItems = [
-          NavigationItem(title: 'Home', icon: Iconsax.home, route: '/home'),
-          NavigationItem(title: 'Proposals', icon: Iconsax.document, route: '/proposals'),
-          NavigationItem(title: 'Archive', icon: Iconsax.archive, route: '/archive'),
-          NavigationItem(title: 'Settings', icon: Iconsax.setting, route: '/settings'),
-        ];
-        break;
+        return [home, proposals, archive, settings];
       case UserRole.manager:
-        _navigationItems = [
-          NavigationItem(title: 'Home', icon: Iconsax.home, route: '/home'),
-          NavigationItem(title: 'Proposals', icon: Iconsax.document, route: '/proposals'),
-          NavigationItem(title: 'Finance', icon: Iconsax.wallet, route: '/financial'),
-          NavigationItem(title: 'Archive', icon: Iconsax.archive, route: '/archive'),
-          NavigationItem(title: 'Settings', icon: Iconsax.setting, route: '/settings'),
-        ];
-        break;
+        return [home, proposals, finance, archive, settings];
       case UserRole.admin:
-        _navigationItems = [
-          NavigationItem(title: 'Dashboard', icon: Iconsax.home, route: '/dashboard'),
-          NavigationItem(title: 'Settings', icon: Iconsax.setting, route: '/settings'),
+        return [
+          NavigationItem(
+            title: AppLocalizations.of(context, 'admin_dashboard'),
+            icon: Iconsax.home,
+            route: '/dashboard',
+          ),
+          proposals,
+          finance,
+          archive,
+          settings,
         ];
-        break;
-    }
-  }
-
-  void _setInitialIndex() {
-    _selectedIndex = _navigationItems.indexWhere(
-      (item) => widget.location.startsWith(item.route),
-    );
-    
-    // Ensure we have a valid selected index, default to 0
-    if (_selectedIndex == -1 && _navigationItems.isNotEmpty) {
-      _selectedIndex = 0;
     }
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isDarkMode = ref.watch(themeProvider);
+    final role = ref.watch(currentUserStreamProvider).valueOrNull?.role;
+    final items = role == null
+        ? const <NavigationItem>[]
+        : _itemsFor(context, role);
+
+    final selectedIndex = items.indexWhere(
+      (item) => location.startsWith(item.route),
+    );
+
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final scaffoldBackgroundColor = isDarkMode ? const Color(0xFF0A1628) : const Color(0xFFF0F4F8);
-    final bottomNavColor = isDarkMode 
-        ? const Color(0xFF0A1628).withOpacity(0.9) 
+    final bottomNavColor = isDarkMode
+        ? const Color(0xFF0A1628).withOpacity(0.9)
         : Colors.white.withOpacity(0.92);
 
     return Scaffold(
-      body: widget.child,
+      body: child,
       backgroundColor: scaffoldBackgroundColor,
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: bottomNavColor,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: _navigationItems.asMap().entries.map((entry) {
-                final index = entry.key;
-                final item = entry.value;
-                final isSelected = _selectedIndex == index;
+      bottomNavigationBar: items.isEmpty
+          ? null
+          : Container(
+              decoration: BoxDecoration(
+                color: bottomNavColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: items.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final item = entry.value;
+                      final isSelected = selectedIndex == index;
 
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedIndex = index;
-                    });
-                    context.go(item.route);
-                  },
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFF4A90D9).withOpacity(0.2)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
-                      border: isSelected
-                          ? Border.all(
-                              color: const Color(0xFF4A90D9),
-                              width: 1,
-                            )
-                          : null,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          item.icon,
-                          color: isSelected
-                              ? const Color(0xFF4A90D9)
-                              : colorScheme.onSurface.withOpacity(0.6),
-                          size: 24,
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          item.title,
-                          style: TextStyle(
+                      return GestureDetector(
+                        onTap: () => context.go(item.route),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
                             color: isSelected
-                                ? const Color(0xFF4A90D9)
-                                : colorScheme.onSurface.withOpacity(0.6),
-                            fontSize: 10,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                ? const Color(0xFF4A90D9).withOpacity(0.2)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                            border: isSelected
+                                ? Border.all(
+                                    color: const Color(0xFF4A90D9),
+                                    width: 1,
+                                  )
+                                : null,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                item.icon,
+                                color: isSelected
+                                    ? const Color(0xFF4A90D9)
+                                    : colorScheme.onSurface.withOpacity(0.6),
+                                size: 24,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                item.title,
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? const Color(0xFF4A90D9)
+                                      : colorScheme.onSurface.withOpacity(0.6),
+                                  fontSize: 10,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
+                      );
+                    }).toList(),
                   ),
-                );
-              }).toList(),
+                ),
+              ),
             ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -326,64 +296,4 @@ class NavigationItem {
     required this.route,
   });
 
-  // New constructor for default items with built-in logic
-  factory NavigationItem.home({
-    required String route,
-  }) {
-    return NavigationItem(
-      title: 'Home',
-      icon: Iconsax.home,
-      route: route,
-    );
-  }
-
-  factory NavigationItem.proposals({
-    required String route,
-  }) {
-    return NavigationItem(
-      title: 'Proposals',
-      icon: Iconsax.document,
-      route: route,
-    );
-  }
-
-  factory NavigationItem.finance({
-    required String route,
-  }) {
-    return NavigationItem(
-      title: 'Finance',
-      icon: Iconsax.wallet,
-      route: route,
-    );
-  }
-
-  factory NavigationItem.archive({
-    required String route,
-  }) {
-    return NavigationItem(
-      title: 'Archive',
-      icon: Iconsax.archive,
-      route: route,
-    );
-  }
-
-  factory NavigationItem.dashboard({
-    required String route,
-  }) {
-    return NavigationItem(
-      title: 'Dashboard',
-      icon: Iconsax.home,
-      route: route,
-    );
-  }
-
-  factory NavigationItem.settings({
-    required String route,
-  }) {
-    return NavigationItem(
-      title: 'Settings',
-      icon: Iconsax.setting,
-      route: route,
-    );
-  }
 }
