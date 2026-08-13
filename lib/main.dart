@@ -3,7 +3,9 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:be_human_app/core/config/app_config.dart';
 import 'package:be_human_app/core/router/app_router.dart';
 import 'package:be_human_app/core/theme/app_theme.dart';
 import 'package:be_human_app/core/languages/app_localizations.dart';
@@ -15,6 +17,15 @@ Future<void> main() async {
   // Android reads its configuration from android/app/google-services.json and
   // iOS from ios/Runner/GoogleService-Info.plist.
   await Firebase.initializeApp();
+
+  // Supabase holds proposal PDFs, which cannot fit in a Firestore document.
+  // A build without these keys still runs; only uploading is unavailable.
+  if (AppConfig.isStorageConfigured) {
+    await Supabase.initialize(
+      url: AppConfig.supabaseUrl,
+      anonKey: AppConfig.supabaseAnonKey,
+    );
+  }
 
   runApp(
     const ProviderScope(

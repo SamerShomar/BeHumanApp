@@ -21,6 +21,52 @@ platform reads its own configuration file:
   Firebase console (project `be-human-5023e`) after registering an iOS app, or
   run `flutterfire configure` to generate it along with `lib/firebase_options.dart`.
 
+## File storage (proposal PDFs)
+
+Firebase Storage requires the paid Blaze plan, so PDFs are stored in
+**Supabase Storage** instead. Firebase Auth and Firestore are unchanged — only
+the file bytes live elsewhere.
+
+A Firestore document is capped at 1 MiB, so the PDF cannot be embedded in it.
+The bytes go to a private Supabase bucket and the document keeps only the
+object path in `pdfPath`; the app mints a short-lived signed URL when a file is
+opened.
+
+### Setup
+
+1. Create a project at [supabase.com](https://supabase.com) (no card required).
+2. **Storage → New bucket** named `proposals`, left **Private**.
+3. **Settings → API** — copy the *Project URL* and the *anon public* key.
+
+### Running
+
+Keys are passed at build time and are never committed:
+
+```bash
+flutter run \
+  --dart-define=SUPABASE_URL=https://xxxx.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=eyJhbGci...
+```
+
+Same flags apply to `flutter build apk`. To use a different bucket name, add
+`--dart-define=SUPABASE_PROPOSALS_BUCKET=<name>`.
+
+Without these flags the app still builds and runs; uploading a proposal reports
+that storage is not configured rather than failing obscurely.
+
+> The **anon** key is meant to ship inside client apps and only grants what the
+> bucket's policies allow. The **service_role** key is a full admin credential
+> and must never be placed in the app or this repository.
+
+### Bucket policies
+
+The anon key alone lets any holder call the storage API, so restrict the bucket
+in **Storage → Policies**. At minimum, scope `INSERT` and `SELECT` to the
+`proposals` bucket. Since sign-in is handled by Firebase rather than Supabase
+Auth, these policies cannot identify the user; treat the bucket as
+app-scoped rather than per-user, and keep it private so files are reachable
+only through generated signed URLs.
+
 ## User accounts
 
 Accounts are **not** created by the app. Create them in the Firebase console

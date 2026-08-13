@@ -13,6 +13,8 @@ import 'package:be_human_app/features/proposals/presentation/screens/proposals_l
 import 'package:be_human_app/features/finance/presentation/screens/finance_screen.dart';
 import 'package:be_human_app/features/home/presentation/screens/home_screen.dart';
 import 'package:be_human_app/core/utils/connectivity.dart';
+import 'package:be_human_app/core/services/file_storage_service.dart';
+import 'package:be_human_app/features/proposals/presentation/widgets/pdf_viewer_widget.dart';
 import 'package:be_human_app/features/about/data/website_scraper.dart';
 
 void main() {
@@ -30,5 +32,7 @@ void main() {
     expect(routerProvider, isNotNull);
     expect(hasNetworkConnection, isNotNull);
     expect(WebsiteScraper(), isNotNull);
+    expect(fileStorageServiceProvider, isNotNull);
+    expect(const PdfViewerWidget(storagePath: 'p1.pdf'), isNotNull);
   });
 }

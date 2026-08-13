@@ -1,14 +1,21 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:convert';
-import 'dart:io';
+
 import 'package:be_human_app/core/languages/app_localizations.dart';
+import 'package:be_human_app/core/services/file_storage_service.dart';
 import 'package:be_human_app/features/admin/presentation/providers/admin_providers.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 import 'package:be_human_app/features/proposals/presentation/widgets/pdf_viewer_widget.dart';
+
+/// Supabase rejects very large objects, and a huge proposal is more likely a
+/// mistake than intent, so it is caught before the upload starts.
+const _maxPdfBytes = 25 * 1024 * 1024;
 
 class ProposalsListScreen extends ConsumerWidget {
   const ProposalsListScreen({super.key});
@@ -53,215 +60,177 @@ class ProposalsListScreen extends ConsumerWidget {
   }
 
   Future<void> _pickPdfAndAdd(BuildContext context, WidgetRef ref, AppUser user) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final addedMessage = AppLocalizations.of(context, 'proposal_added');
+
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
+      // Without this the picker returns only a path on some platforms.
+      withData: true,
     );
 
     if (result == null || result.files.isEmpty) return;
     final file = result.files.first;
 
-    if (file.bytes == null) {
-      // Try to read from local file path
-      if (file.path != null) {
-        try {
-          final fileBytes = await File(file.path!).readAsBytes();
-          final base64Pdf = base64Encode(fileBytes);
-          final id = 'p${DateTime.now().millisecondsSinceEpoch}';
-          final newProposal = {
-            'id': id,
-            'title': file.name,
-            'fileName': file.name,
-            'pdfBase64': base64Pdf,
-            'status': 'معلق',
-            'date': DateTime.now().toIso8601String(),
-            'amount': 0.0,
-            'submittedBy': user.uid,
-            'submittedByName': user.name,
-          };
+    final Uint8List? bytes = file.bytes ??
+        (file.path != null ? await File(file.path!).readAsBytes() : null);
 
-          try {
-            final adminService = ref.read(firestoreAdminServiceProvider);
-            await adminService.addProposal(newProposal);
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context, 'proposal_added'))));
-          } catch (e) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('فشل إضافة المقترح: ${e.toString()}')),
-            );
-          }
-          return;
-        } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('فشل قراءة الملف: ${e.toString()}')),
-          );
-          return;
-        }
-      }
-      
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لم يتم تحميل الملف')));
+    if (bytes == null) {
+      messenger.showSnackBar(const SnackBar(content: Text('لم يتم تحميل الملف')));
       return;
     }
 
-    final base64Pdf = base64Encode(file.bytes!);
-    final id = 'p${DateTime.now().millisecondsSinceEpoch}';
-    final newProposal = {
-      'id': id,
-      'title': file.name,
-      'fileName': file.name,
-      'pdfBase64': base64Pdf,
-      'status': 'معلق',
-      'date': DateTime.now().toIso8601String(),
-      'amount': 0.0,
-      'submittedBy': user.uid,
-      'submittedByName': user.name,
-    };
+    if (bytes.lengthInBytes > _maxPdfBytes) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('الملف كبير جداً، الحد الأقصى 25 ميغابايت')),
+      );
+      return;
+    }
 
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final id = 'p${DateTime.now().millisecondsSinceEpoch}';
     try {
-      final adminService = ref.read(firestoreAdminServiceProvider);
-      await adminService.addProposal(newProposal);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context, 'proposal_added'))));
+      // The PDF goes to Supabase and only its path is kept on the document —
+      // a Firestore document cannot exceed 1 MiB.
+      final storagePath = await ref
+          .read(fileStorageServiceProvider)
+          .uploadProposalPdf(proposalId: id, bytes: bytes);
+
+      await ref.read(firestoreAdminServiceProvider).addProposal({
+        'id': id,
+        'title': file.name,
+        'fileName': file.name,
+        'pdfPath': storagePath,
+        'status': 'معلق',
+        'date': DateTime.now().toIso8601String(),
+        'amount': 0.0,
+        'submittedBy': user.uid,
+        'submittedByName': user.name,
+      });
+
+      navigator.pop();
+      messenger.showSnackBar(SnackBar(content: Text(addedMessage)));
+    } on FileStorageException catch (e) {
+      navigator.pop();
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      navigator.pop();
+      messenger.showSnackBar(
         SnackBar(content: Text('فشل إضافة المقترح: ${e.toString()}')),
       );
     }
   }
 
-  Future<void> _showProposalDetails(BuildContext context, WidgetRef ref, Map<String, dynamic> p, AppUser? user) async {
+  Future<void> _showProposalDetails(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> p,
+    AppUser? user,
+  ) async {
     final isReviewer = user != null && (user.team == UserTeam.netherlands || user.isAdmin);
+    final storagePath = p['pdfPath'] is String ? p['pdfPath'] as String : null;
 
-    if (p['pdfBase64'] != null && p['pdfBase64'] is String) {
-      final base64Pdf = p['pdfBase64'] as String;
-      
-      showDialog(
-        context: context,
-        builder: (ctx) {
-          return AlertDialog(
-            title: Text(p['title'] ?? AppLocalizations.of(context, 'proposal_details')),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('${AppLocalizations.of(context, 'status')}: ${p['status'] ?? ''}'),
-                const SizedBox(height: 8),
-                Text('${AppLocalizations.of(context, 'submitted_by')}: ${p['submittedByName'] ?? ''}'),
-                const SizedBox(height: 8),
-                Text('${AppLocalizations.of(context, 'file_name')}: ${p['fileName'] ?? AppLocalizations.of(context, 'no_file')}'),
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text(p['title'] ?? AppLocalizations.of(context, 'proposal_details')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${AppLocalizations.of(context, 'status')}: ${p['status'] ?? ''}'),
+              const SizedBox(height: 8),
+              Text('${AppLocalizations.of(context, 'submitted_by')}: ${p['submittedByName'] ?? ''}'),
+              const SizedBox(height: 8),
+              Text('${AppLocalizations.of(context, 'file_name')}: ${p['fileName'] ?? AppLocalizations.of(context, 'no_file')}'),
+              if (storagePath != null) ...[
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () {
                     Navigator.of(ctx).pop();
-                    _openPdfViewer(context, base64Pdf);
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => PdfViewerWidget(
+                          storagePath: storagePath,
+                          title: p['title'] as String?,
+                        ),
+                      ),
+                    );
                   },
                   child: const Text('عرض الـ PDF'),
                 ),
               ],
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(AppLocalizations.of(context, 'close'))),
-              if (isReviewer) ...[
-                TextButton(
-                  onPressed: () async {
-                    try {
-                      final adminService = ref.read(firestoreAdminServiceProvider);
-                      await adminService.updateProposalStatus(p['id'], 'مقبول');
-                      Navigator.of(ctx).pop();
-                    } catch (e) {
-                      ScaffoldMessenger.of(ctx).showSnackBar(
-                        SnackBar(content: Text('فشل الموافقة: ${e.toString()}')),
-                      );
-                    }
-                  },
-                  child: Text(AppLocalizations.of(context, 'approve'), style: const TextStyle(color: Colors.green)),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    try {
-                      final adminService = ref.read(firestoreAdminServiceProvider);
-                      await adminService.updateProposalStatus(p['id'], 'مرفوض');
-                      Navigator.of(ctx).pop();
-                    } catch (e) {
-                      ScaffoldMessenger.of(ctx).showSnackBar(
-                        SnackBar(content: Text('فشل الرفض: ${e.toString()}')),
-                      );
-                    }
-                  },
-                  child: Text(AppLocalizations.of(context, 'reject'), style: const TextStyle(color: Colors.red)),
-                ),
-              ],
             ],
-          );
-        },
-      );
-    } else {
-      showDialog(
-        context: context,
-        builder: (ctx) {
-          return AlertDialog(
-            title: Text(p['title'] ?? AppLocalizations.of(context, 'proposal_details')),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('${AppLocalizations.of(context, 'status')}: ${p['status'] ?? ''}'),
-                const SizedBox(height: 8),
-                Text('${AppLocalizations.of(context, 'submitted_by')}: ${p['submittedByName'] ?? ''}'),
-                const SizedBox(height: 8),
-                Text('${AppLocalizations.of(context, 'file_name')}: ${p['fileName'] ?? AppLocalizations.of(context, 'no_file')}'),
-              ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(AppLocalizations.of(context, 'close')),
             ),
-            actions: [
-              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(AppLocalizations.of(context, 'close'))),
-              if (isReviewer) ...[
-                TextButton(
-                  onPressed: () async {
-                    try {
-                      final adminService = ref.read(firestoreAdminServiceProvider);
-                      await adminService.updateProposalStatus(p['id'], 'مقبول');
-                      Navigator.of(ctx).pop();
-                    } catch (e) {
-                      ScaffoldMessenger.of(ctx).showSnackBar(
-                        SnackBar(content: Text('فشل الموافقة: ${e.toString()}')),
-                      );
-                    }
-                  },
-                  child: Text(AppLocalizations.of(context, 'approve'), style: const TextStyle(color: Colors.green)),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    try {
-                      final adminService = ref.read(firestoreAdminServiceProvider);
-                      await adminService.updateProposalStatus(p['id'], 'مرفوض');
-                      Navigator.of(ctx).pop();
-                    } catch (e) {
-                      ScaffoldMessenger.of(ctx).showSnackBar(
-                        SnackBar(content: Text('فشل الرفض: ${e.toString()}')),
-                      );
-                    }
-                  },
-                  child: Text(AppLocalizations.of(context, 'reject'), style: const TextStyle(color: Colors.red)),
-                ),
-              ],
+            if (isReviewer) ...[
+              _StatusButton(
+                proposalId: p['id'] as String,
+                status: 'مقبول',
+                label: AppLocalizations.of(context, 'approve'),
+                color: Colors.green,
+                failureMessage: 'فشل الموافقة',
+              ),
+              _StatusButton(
+                proposalId: p['id'] as String,
+                status: 'مرفوض',
+                label: AppLocalizations.of(context, 'reject'),
+                color: Colors.red,
+                failureMessage: 'فشل الرفض',
+              ),
             ],
-          );
-        },
-      );
-    }
+          ],
+        );
+      },
+    );
   }
+}
 
-  void _openPdfViewer(BuildContext context, String base64Pdf) {
-    try {
-      // Navigate to PDF viewer screen
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (ctx) => PdfViewerWidget(base64Pdf: base64Pdf),
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل فك تشفير PDF: ${e.toString()}')),
-      );
-    }
+class _StatusButton extends ConsumerWidget {
+  const _StatusButton({
+    required this.proposalId,
+    required this.status,
+    required this.label,
+    required this.color,
+    required this.failureMessage,
+  });
+
+  final String proposalId;
+  final String status;
+  final String label;
+  final Color color;
+  final String failureMessage;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return TextButton(
+      onPressed: () async {
+        final messenger = ScaffoldMessenger.of(context);
+        final navigator = Navigator.of(context);
+        try {
+          await ref
+              .read(firestoreAdminServiceProvider)
+              .updateProposalStatus(proposalId, status);
+          navigator.pop();
+        } catch (e) {
+          messenger.showSnackBar(
+            SnackBar(content: Text('$failureMessage: ${e.toString()}')),
+          );
+        }
+      },
+      child: Text(label, style: TextStyle(color: color)),
+    );
   }
 }

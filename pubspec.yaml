@@ -40,6 +40,9 @@ dependencies:
   http: ^1.0.0
   html: ^0.15.0
   connectivity_plus: ^6.0.5
+
+  # File storage (Firebase Storage requires the paid Blaze plan)
+  supabase_flutter: ^2.8.0
   
   # Firebase (Strict Versioning)
   firebase_core: 3.6.0
