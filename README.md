@@ -21,6 +21,44 @@ platform reads its own configuration file:
   Firebase console (project `be-human-5023e`) after registering an iOS app, or
   run `flutterfire configure` to generate it along with `lib/firebase_options.dart`.
 
+## Data protection
+
+**Already encrypted, nothing to configure:** every Firebase and Supabase call
+travels over TLS, and both services encrypt at rest on their servers. The app
+never sends anything in the clear over the network.
+
+The exposure that remains is the **device**. These measures address it:
+
+| Measure | Where | Effect |
+| --- | --- | --- |
+| Offline cache disabled | `SecuritySettings.allowOfflineCache` | Firestore's local cache is an unencrypted SQLite file; with it off, no proposal or transaction is written to disk |
+| Cache cleared on sign-out | `AuthService.signOut` | Nothing readable is left behind for the next holder of the device |
+| Auto sign-out after 10 min idle | `InactivityGuard` | An unlocked phone with the app open is otherwise full access |
+| `FLAG_SECURE` | `MainActivity.kt` | Blocks screenshots and screen recording, and blanks the recents-switcher thumbnail |
+| 5-minute signed URLs | `FileStorageService` | A copied PDF link cannot outlive the session |
+| Access rules | `firestore.rules` | Server-side enforcement — the real boundary, independent of the client |
+
+**Trade-off to be aware of:** with the offline cache disabled the app needs a
+live connection for every read and will not work offline. That is deliberate
+for financial and beneficiary records. If uninterrupted offline use matters
+more than a seized device staying unreadable, set `allowOfflineCache` to `true`
+in `lib/core/security/security_settings.dart` — and understand what it means.
+
+**Not implemented — and why.** Client-side end-to-end encryption (encrypting
+fields before they reach Firestore) was considered and rejected. The key would
+have to ship inside the app, so anyone with the APK could decrypt; it would
+break server-side ordering and the rules that check `submittedBy`; and a lost
+key would mean permanently unreadable records. Real end-to-end encryption needs
+per-user keys and key exchange, which is a much larger system than this. For a
+small team whose realistic threat is a lost or seized device, the measures above
+give far more actual protection.
+
+**Recommended next step:** enable
+[Firebase App Check](https://firebase.google.com/docs/app-check) with Play
+Integrity. It stops a stolen `google-services.json` from being used to talk to
+your backend from outside the real app. It is free and configured entirely in
+the Firebase console.
+
 ## Firestore security rules
 
 `firestore.rules` is the access model — without it deployed, a project left in

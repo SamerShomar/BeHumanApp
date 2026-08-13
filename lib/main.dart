@@ -6,6 +6,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:be_human_app/core/config/app_config.dart';
+import 'package:be_human_app/core/security/inactivity_guard.dart';
+import 'package:be_human_app/core/security/security_settings.dart';
 import 'package:be_human_app/core/router/app_router.dart';
 import 'package:be_human_app/core/theme/app_theme.dart';
 import 'package:be_human_app/core/languages/app_localizations.dart';
@@ -17,6 +19,10 @@ Future<void> main() async {
   // Android reads its configuration from android/app/google-services.json and
   // iOS from ios/Runner/GoogleService-Info.plist.
   await Firebase.initializeApp();
+
+  // Must run before Firestore is touched: it decides whether documents are
+  // allowed to persist unencrypted on the device.
+  await SecuritySettings.apply();
 
   // Supabase holds proposal PDFs, which cannot fit in a Firestore document.
   // A build without these keys still runs; only uploading is unavailable.
@@ -62,6 +68,7 @@ class BeHumanApp extends ConsumerWidget {
             GlobalCupertinoLocalizations.delegate,
           ],
           routerConfig: router,
+          builder: (context, child) => InactivityGuard(child: child ?? const SizedBox.shrink()),
           localeResolutionCallback: (locale, supportedLocales) {
             if (locale == null) return supportedLocales.first;
             for (final supportedLocale in supportedLocales) {

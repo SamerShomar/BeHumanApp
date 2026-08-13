@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:be_human_app/core/security/security_settings.dart';
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 
 final firebaseAuthProvider = Provider<FirebaseAuth>((ref) => FirebaseAuth.instance);
@@ -87,7 +88,9 @@ class AuthService {
     await user.updatePassword(newPassword);
   }
 
-  Future<void> signOut() => auth.signOut();
+  /// Signs out and clears any locally cached documents, so a later holder
+  /// of the device cannot read what the previous session viewed.
+  Future<void> signOut() => SecuritySettings.signOutAndClearCache(auth);
 }
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService(ref.watch(firebaseAuthProvider), ref.watch(firebaseFirestoreProvider)));

@@ -78,11 +78,11 @@ class FileStorageService {
   /// Returns a temporary URL for reading [path].
   ///
   /// The bucket is private, so this is what makes the file viewable. The link
-  /// stops working once [expiresIn] elapses, which keeps it from being shared
-  /// outside the app indefinitely.
+  /// stops working once [expiresIn] elapses, which keeps a copied link from
+  /// outliving the session that produced it.
   Future<String> createSignedUrl(
     String path, {
-    Duration expiresIn = const Duration(hours: 1),
+    Duration expiresIn = const Duration(minutes: 5),
   }) async {
     try {
       return await _requireClient.storage
