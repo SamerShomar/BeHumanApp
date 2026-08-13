@@ -1,0 +1,82 @@
+rules_version = '2';
+
+// Access model for the Be Human platform.
+//
+// Roles live on the user's own document in /users/{uid} as the strings
+// 'member' | 'manager' | 'admin', matching how
+// AppUser serializes them. Teams are 'gaza' | 'netherlands'.
+//
+// Deploy with:  firebase deploy --only firestore:rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function profile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasProfile() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function role() {
+      return profile().role;
+    }
+
+    function isAdmin() {
+      return hasProfile() && role() == 'admin';
+    }
+
+    // Managers and admins are the reviewers: they decide on proposals and own
+    // the financial ledger.
+    function isReviewer() {
+      return hasProfile()
+        && (role() == 'manager' || role() == 'admin');
+    }
+
+    match /users/{userId} {
+      // Everyone signed in can read profiles — the app resolves submitter
+      // names and the reviewer list from here.
+      allow read: if hasProfile();
+
+      // Only an admin may create profiles or change a role. A user may edit
+      // their own document but must not promote themselves, so the role and
+      // team fields have to stay identical to what is already stored.
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (request.auth.uid == userId
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.team == resource.data.team);
+    }
+
+    match /proposals/{proposalId} {
+      allow read: if hasProfile();
+
+      // Gaza team members submit proposals; the document must be stamped with
+      // the submitter's own uid so authorship cannot be forged.
+      allow create: if hasProfile()
+        && request.resource.data.submittedBy == request.auth.uid;
+
+      // Only reviewers change a proposal's status after submission.
+      allow update: if isReviewer();
+      allow delete: if isAdmin();
+    }
+
+    match /transactions/{transactionId} {
+      allow read: if hasProfile();
+      allow create, update: if isReviewer();
+      allow delete: if isAdmin();
+    }
+
+    // Anything not matched above is denied. Never replace this with a
+    // blanket allow — that is what "test mode" does, and it exposes every
+    // proposal and financial record to the public internet.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

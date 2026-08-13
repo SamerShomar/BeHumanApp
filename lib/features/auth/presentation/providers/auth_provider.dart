@@ -57,6 +57,15 @@ class AuthService {
     return AppUser.fromJson(doc.data()!);
   }
 
+  /// Sends a Firebase password-reset email.
+  ///
+  /// Firebase deliberately reports success even for an unknown address when
+  /// email-enumeration protection is on, so the caller must not treat this as
+  /// proof that the account exists.
+  Future<void> sendPasswordReset(String email) async {
+    await auth.sendPasswordResetEmail(email: email);
+  }
+
   /// Firebase requires a recent login before a password change, so the current
   /// password is used to re-authenticate first.
   Future<void> changePassword({

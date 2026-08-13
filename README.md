@@ -21,6 +21,34 @@ platform reads its own configuration file:
   Firebase console (project `be-human-5023e`) after registering an iOS app, or
   run `flutterfire configure` to generate it along with `lib/firebase_options.dart`.
 
+## Firestore security rules
+
+`firestore.rules` is the access model — without it deployed, a project left in
+test mode exposes every proposal and financial record to anyone on the
+internet, and a project in production mode denies everything.
+
+Deploy it:
+
+```bash
+npm install -g firebase-tools   # once
+firebase login
+firebase deploy --only firestore:rules --project be-human-5023e
+```
+
+Or paste the file's contents into Firebase console → Firestore Database →
+Rules → Publish.
+
+What it enforces:
+
+| Collection | Read | Write |
+| --- | --- | --- |
+| `users` | any signed-in user with a profile | admin only, except a user editing their own profile without changing `role` or `team` |
+| `proposals` | any signed-in user with a profile | create by the submitter (stamped with their own uid); status changes by manager/admin |
+| `transactions` | any signed-in user with a profile | manager/admin only |
+
+Everything else is denied. A signed-in user with no `users` document can read
+nothing, which matches `AuthService.signIn` rejecting that case.
+
 ## File storage (proposal PDFs)
 
 Firebase Storage requires the paid Blaze plan, so PDFs are stored in
@@ -78,15 +106,15 @@ collection keyed by the user's UID:
   "uid": "<firebase-auth-uid>",
   "email": "person@behuman.org",
   "name": "Full Name",
-  "role": "UserRole.member",
-  "team": "UserTeam.gaza",
+  "role": "member",
+  "team": "gaza",
   "isActive": true,
   "createdAt": "2026-01-01T00:00:00.000Z"
 }
 ```
 
-`role` is one of `UserRole.member`, `UserRole.manager`, `UserRole.admin`, and
-`team` is one of `UserTeam.gaza`, `UserTeam.netherlands`. A user without a
+`role` is one of `member`, `manager`, `admin`, and `team` is one of `gaza`,
+`netherlands` — the bare enum names the generated serializer reads and writes. A user without a
 `users` document cannot sign in — `AuthService.signIn` rejects the login.
 
 Never commit passwords to this repository. Users change their own password from

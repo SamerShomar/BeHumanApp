@@ -16,6 +16,7 @@ import 'package:be_human_app/core/utils/connectivity.dart';
 import 'package:be_human_app/core/services/file_storage_service.dart';
 import 'package:be_human_app/features/proposals/presentation/widgets/pdf_viewer_widget.dart';
 import 'package:be_human_app/features/about/data/website_scraper.dart';
+import 'package:be_human_app/features/admin/presentation/providers/admin_providers.dart';
 
 void main() {
   test('every library compiles and its widgets are constructible', () {
@@ -34,5 +35,8 @@ void main() {
     expect(WebsiteScraper(), isNotNull);
     expect(fileStorageServiceProvider, isNotNull);
     expect(const PdfViewerWidget(storagePath: 'p1.pdf'), isNotNull);
+    expect(usersProvider, isNotNull);
+    expect(formatAmount(1234.5), '1,234.5\$');
+    expect(formatAmount(null), '—');
   });
 }

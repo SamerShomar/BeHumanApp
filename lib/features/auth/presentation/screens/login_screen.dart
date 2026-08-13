@@ -88,6 +88,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  Future<void> _handleForgotPassword() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final email = _emailController.text.trim().toLowerCase();
+
+    if (email.isEmpty) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context, 'reset_needs_email'))),
+      );
+      return;
+    }
+
+    final sentMessage = AppLocalizations.of(context, 'reset_sent');
+
+    try {
+      await ref.read(authServiceProvider).sendPasswordReset(email);
+      // Firebase reports success even for unknown addresses, so the wording
+      // must not confirm whether the account exists.
+      messenger.showSnackBar(SnackBar(content: Text(sentMessage)));
+    } on FirebaseAuthException catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(e.message ?? 'تعذّر إرسال رسالة الاستعادة')),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -217,6 +242,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         ),
                                       )
                                     : Text(AppLocalizations.of(context, 'login_button')),
+                              ),
+                            ),
+                            SizedBox(height: 8.h),
+                            TextButton(
+                              onPressed: isLoading ? null : _handleForgotPassword,
+                              child: Text(
+                                AppLocalizations.of(context, 'forgot_password'),
+                                style: TextStyle(
+                                  color: colorScheme.onSurface,
+                                  fontSize: 13.sp,
+                                ),
                               ),
                             ),
                           ],

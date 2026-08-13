@@ -123,26 +123,21 @@ class AdminDashboardScreen extends ConsumerWidget {
             const SizedBox(height: 16),
 
             // Users
-            const Text('الأعضاء', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(
+              AppLocalizations.of(context, 'members'),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
-            // TODO: Implement users list display from Firestore
-            // ...users.map((u) => ListTile(
-            //   title: Text(u.name),
-            //   subtitle: Text(u.email),
-            //   trailing: DropdownButton<UserRole>(
-            //     value: u.role,
-            //     items: UserRole.values
-            //         .map((r) => DropdownMenuItem(value: r, child: Text(r.name)))
-            //         .toList(),
-            //     onChanged: (r) {
-            //       // TODO: Implement user role update in Firestore
-            //       // This would require a users collection in Firestore
-            //       if (r != null) {
-            //         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تحديث الدور قيد التطوير')));
-            //       }
-            //     },
-            //   ),
-            // )),
+            ref.watch(usersProvider).when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (error, _) => Text('${AppLocalizations.of(context, 'error_generic')}: $error'),
+                  data: (users) => Column(
+                    children: [
+                      for (final member in users)
+                        _MemberTile(member: member, currentUserUid: user.uid),
+                    ],
+                  ),
+                ),
           ],
         ),
       ),
@@ -252,6 +247,55 @@ class AdminDashboardScreen extends ConsumerWidget {
             child: const Text('حفظ'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A member row with an inline role selector.
+///
+/// Firestore rules also enforce that only an admin may change a role, so this
+/// UI is a convenience rather than the security boundary.
+class _MemberTile extends ConsumerWidget {
+  const _MemberTile({required this.member, required this.currentUserUid});
+
+  final AppUser member;
+  final String currentUserUid;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Guard against an admin removing their own admin rights and locking
+    // everyone out of the dashboard.
+    final isSelf = member.uid == currentUserUid;
+
+    return Card(
+      child: ListTile(
+        title: Text(member.name),
+        subtitle: Text('${member.email} • ${member.team.name}'),
+        trailing: DropdownButton<UserRole>(
+          value: member.role,
+          onChanged: isSelf
+              ? null
+              : (role) async {
+                  if (role == null) return;
+                  final messenger = ScaffoldMessenger.of(context);
+                  final updated = AppLocalizations.of(context, 'role_updated');
+                  try {
+                    await ref
+                        .read(firestoreAdminServiceProvider)
+                        .updateUserRole(member.uid, role);
+                    messenger.showSnackBar(SnackBar(content: Text(updated)));
+                  } catch (e) {
+                    messenger.showSnackBar(
+                      SnackBar(content: Text('${AppLocalizations.of(context, 'error_generic')}: $e')),
+                    );
+                  }
+                },
+          items: [
+            for (final role in UserRole.values)
+              DropdownMenuItem(value: role, child: Text(role.name)),
+          ],
+        ),
       ),
     );
   }

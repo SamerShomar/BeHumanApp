@@ -46,9 +46,20 @@ class FileStorageService {
   Future<String> uploadProposalPdf({
     required String proposalId,
     required Uint8List bytes,
-  }) async {
-    final path = '$proposalId.pdf';
+  }) {
+    return _upload('$proposalId.pdf', bytes);
+  }
 
+  /// Invoices share the bucket but live under their own prefix, so a listing
+  /// or a policy can target one kind of document without the other.
+  Future<String> uploadInvoicePdf({
+    required String transactionId,
+    required Uint8List bytes,
+  }) {
+    return _upload('invoices/$transactionId.pdf', bytes);
+  }
+
+  Future<String> _upload(String path, Uint8List bytes) async {
     try {
       await _requireClient.storage.from(_bucket).uploadBinary(
             path,
