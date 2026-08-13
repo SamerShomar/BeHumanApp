@@ -27,7 +27,8 @@ class AppUser with _$AppUser {
     DateTime? createdAt,
   }) = _AppUser;
 
-  factory AppUser.fromJson(Map<String, dynamic> json) => _$AppUserFromJson(json);
+  factory AppUser.fromJson(Map<String, dynamic> json) =>
+      _$AppUserFromJson(json);
 }
 
 extension AppUserX on AppUser {
@@ -37,5 +38,7 @@ extension AppUserX on AppUser {
 
   bool get canApprove => role == UserRole.admin || role == UserRole.manager;
   bool get canPropose => true; // All roles can propose
-  bool get hasFinancialAccess => role == UserRole.admin || (role == UserRole.manager && team == UserTeam.netherlands);
+  bool get hasFinancialAccess =>
+      role == UserRole.admin ||
+      (role == UserRole.manager && team == UserTeam.netherlands);
 }

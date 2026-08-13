@@ -19,7 +19,8 @@ class HomeScreen extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: isDarkMode ? const Color(0xFF0A1628) : const Color(0xFFF0F4F8),
+      backgroundColor:
+          isDarkMode ? const Color(0xFF0A1628) : const Color(0xFFF0F4F8),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -167,7 +168,7 @@ class HomeScreen extends ConsumerWidget {
               padding: EdgeInsets.symmetric(horizontal: 20.w),
               child: Container(
                 padding: EdgeInsets.all(16.r),
-                decoration: isDarkMode 
+                decoration: isDarkMode
                     ? AppTheme.glassCardDark()
                     : AppTheme.glassCardLight(),
                 child: Column(

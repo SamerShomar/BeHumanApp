@@ -3,8 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 
-final firebaseAuthProvider = Provider<FirebaseAuth>((ref) => FirebaseAuth.instance);
-final firebaseFirestoreProvider = Provider<FirebaseFirestore>((ref) => FirebaseFirestore.instance);
+final firebaseAuthProvider =
+    Provider<FirebaseAuth>((ref) => FirebaseAuth.instance);
+final firebaseFirestoreProvider =
+    Provider<FirebaseFirestore>((ref) => FirebaseFirestore.instance);
 
 final currentUserStreamProvider = StreamProvider<AppUser?>((ref) {
   final auth = ref.watch(firebaseAuthProvider);
@@ -43,15 +45,19 @@ class AuthService {
   final FirebaseFirestore firestore;
 
   Future<AppUser> signIn(String email, String password) async {
-    final credential = await auth.signInWithEmailAndPassword(email: email, password: password);
+    final credential =
+        await auth.signInWithEmailAndPassword(email: email, password: password);
     final uid = credential.user?.uid;
     if (uid == null) {
-      throw FirebaseAuthException(code: 'user-not-found', message: 'User not found after login.');
+      throw FirebaseAuthException(
+          code: 'user-not-found', message: 'User not found after login.');
     }
 
     final doc = await firestore.collection('users').doc(uid).get();
     if (!doc.exists || doc.data() == null) {
-      throw FirebaseException(plugin: 'be_human_app', message: 'User profile not found in Firestore.');
+      throw FirebaseException(
+          plugin: 'be_human_app',
+          message: 'User profile not found in Firestore.');
     }
 
     return AppUser.fromJson(doc.data()!);
@@ -60,4 +66,5 @@ class AuthService {
   Future<void> signOut() => auth.signOut();
 }
 
-final authServiceProvider = Provider<AuthService>((ref) => AuthService(ref.watch(firebaseAuthProvider), ref.watch(firebaseFirestoreProvider)));
+final authServiceProvider = Provider<AuthService>((ref) => AuthService(
+    ref.watch(firebaseAuthProvider), ref.watch(firebaseFirestoreProvider)));

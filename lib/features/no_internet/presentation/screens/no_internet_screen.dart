@@ -26,12 +26,12 @@ class _NoInternetScreenState extends ConsumerState<NoInternetScreen> {
 
     try {
       final hasInternet = await _checkInternet();
-      
+
       if (mounted) {
         setState(() {
           _isChecking = false;
         });
-        
+
         if (hasInternet) {
           context.go('/login');
         }
@@ -52,7 +52,8 @@ class _NoInternetScreenState extends ConsumerState<NoInternetScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: isDarkMode ? const Color(0xFF0A1628) : const Color(0xFFF0F4F8),
+      backgroundColor:
+          isDarkMode ? const Color(0xFF0A1628) : const Color(0xFFF0F4F8),
       body: SafeArea(
         child: Center(
           child: Column(
@@ -63,7 +64,7 @@ class _NoInternetScreenState extends ConsumerState<NoInternetScreen> {
                 height: 120,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: isDarkMode 
+                  color: isDarkMode
                       ? Colors.white.withOpacity(0.1)
                       : Colors.grey.withOpacity(0.2),
                 ),
@@ -99,7 +100,8 @@ class _NoInternetScreenState extends ConsumerState<NoInternetScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: colorScheme.primary,
                         foregroundColor: colorScheme.onPrimary,
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 32, vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),

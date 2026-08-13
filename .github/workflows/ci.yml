@@ -35,10 +35,13 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # The existing sources carry ~129 lint infos (avoid_print,
-      # use_build_context_synchronously, ...). Infos are reported but do not
-      # fail the build; errors and warnings still do. Drop --no-fatal-infos
-      # once those are cleaned up.
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
+
+      # The sources still carry lint infos (mostly
+      # use_build_context_synchronously). Infos are reported but do not fail
+      # the build; errors and warnings still do. Drop --no-fatal-infos once
+      # those are cleaned up.
       - name: Analyze
         run: flutter analyze --no-fatal-infos
 

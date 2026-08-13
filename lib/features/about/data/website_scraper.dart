@@ -23,7 +23,11 @@ class WebsiteScraper {
 
       String extractMultiple(String tag, int count) {
         final re = RegExp('<$tag[^>]*>([sS]*?)</$tag>', caseSensitive: false);
-        final matches = re.allMatches(body).take(count).map((m) => _stripTags(m.group(1) ?? '')).toList();
+        final matches = re
+            .allMatches(body)
+            .take(count)
+            .map((m) => _stripTags(m.group(1) ?? ''))
+            .toList();
         return matches.join('\n\n');
       }
 
@@ -50,9 +54,11 @@ class WebsiteScraper {
 
   Map<String, String> _fallback() {
     return {
-      'mission': 'نحن نعمل من أجل إنسانية أفضل ودعم المجتمعات في حالات الأزمات.',
+      'mission':
+          'نحن نعمل من أجل إنسانية أفضل ودعم المجتمعات في حالات الأزمات.',
       'vision': 'عالم يتمتع فيه الجميع بكرامة وفرص متكافئة.',
-      'description': 'Be Human هي منظمة مجتمع مدني تعمل على تقديم المساعدة الطارئة والبرامج التنموية والدعم النفسي والاجتماعي للمجتمعات المتأثرة. نركز على الشفافية، الكفاءة، والعمل الجماعي لبناء مستقبل أفضل.',
+      'description':
+          'Be Human هي منظمة مجتمع مدني تعمل على تقديم المساعدة الطارئة والبرامج التنموية والدعم النفسي والاجتماعي للمجتمعات المتأثرة. نركز على الشفافية، الكفاءة، والعمل الجماعي لبناء مستقبل أفضل.',
     };
   }
 }
@@ -61,4 +67,7 @@ final websiteScraperProvider = Provider((ref) => WebsiteScraper());
 
 String _normalizeText(String t) => t.replaceAll(RegExp(r"\s+"), ' ').trim();
 
-String _stripTags(String s) => s.replaceAll(RegExp(r'<[^>]*>|&nbsp;'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+String _stripTags(String s) => s
+    .replaceAll(RegExp(r'<[^>]*>|&nbsp;'), ' ')
+    .replaceAll(RegExp(r'\s+'), ' ')
+    .trim();

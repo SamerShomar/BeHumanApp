@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -20,24 +19,25 @@ class AppRouter {
   static final GoRouter router = GoRouter(
     initialLocation: '/',
     redirect: (context, state) {
-      final authState = ProviderScope.containerOf(context).read(authStateProvider);
+      final authState =
+          ProviderScope.containerOf(context).read(authStateProvider);
       final user = authState.when(
         data: (user) => user,
         loading: () => null,
         error: (error, stack) => null,
       );
       final isLoggedIn = user != null;
-      
+
       // Non-authenticated users cannot access protected routes
       if (!isLoggedIn && state.matchedLocation != '/login') {
         return '/login';
       }
-      
+
       // Authenticated users should not be on login screen
       if (isLoggedIn && state.matchedLocation == '/login') {
         return '/home';
       }
-      
+
       return null;
     },
     routes: [
@@ -62,12 +62,14 @@ class AppRouter {
       GoRoute(
         path: '/dashboard',
         name: 'dashboard',
-        builder: (context, state) => const HomeScreen(), // Temporary placeholder for admin dashboard
+        builder: (context, state) =>
+            const HomeScreen(), // Temporary placeholder for admin dashboard
       ),
       GoRoute(
         path: '/archive',
         name: 'archive',
-        builder: (context, state) => const HomeScreen(), // Temporary placeholder for archive
+        builder: (context, state) =>
+            const HomeScreen(), // Temporary placeholder for archive
       ),
       ShellRoute(
         builder: (context, state, child) {
@@ -163,7 +165,7 @@ class _MainShellState extends ConsumerState<MainShell> {
           .collection('users')
           .doc(user.uid)
           .get();
-      
+
       if (userDoc.exists) {
         final userData = userDoc.data();
         _userRole = UserRole.values.firstWhere(
@@ -172,10 +174,7 @@ class _MainShellState extends ConsumerState<MainShell> {
         );
       } else {
         // If document doesn't exist, create it with default role
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .set({
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
           'email': user.email,
           'role': 'UserRole.member',
           'createdAt': FieldValue.serverTimestamp(),
@@ -198,24 +197,33 @@ class _MainShellState extends ConsumerState<MainShell> {
       case UserRole.member:
         _navigationItems = [
           NavigationItem(title: 'Home', icon: Iconsax.home, route: '/home'),
-          NavigationItem(title: 'Proposals', icon: Iconsax.document, route: '/proposals'),
-          NavigationItem(title: 'Archive', icon: Iconsax.archive, route: '/archive'),
-          NavigationItem(title: 'Settings', icon: Iconsax.setting, route: '/settings'),
+          NavigationItem(
+              title: 'Proposals', icon: Iconsax.document, route: '/proposals'),
+          NavigationItem(
+              title: 'Archive', icon: Iconsax.archive, route: '/archive'),
+          NavigationItem(
+              title: 'Settings', icon: Iconsax.setting, route: '/settings'),
         ];
         break;
       case UserRole.manager:
         _navigationItems = [
           NavigationItem(title: 'Home', icon: Iconsax.home, route: '/home'),
-          NavigationItem(title: 'Proposals', icon: Iconsax.document, route: '/proposals'),
-          NavigationItem(title: 'Finance', icon: Iconsax.wallet, route: '/financial'),
-          NavigationItem(title: 'Archive', icon: Iconsax.archive, route: '/archive'),
-          NavigationItem(title: 'Settings', icon: Iconsax.setting, route: '/settings'),
+          NavigationItem(
+              title: 'Proposals', icon: Iconsax.document, route: '/proposals'),
+          NavigationItem(
+              title: 'Finance', icon: Iconsax.wallet, route: '/financial'),
+          NavigationItem(
+              title: 'Archive', icon: Iconsax.archive, route: '/archive'),
+          NavigationItem(
+              title: 'Settings', icon: Iconsax.setting, route: '/settings'),
         ];
         break;
       case UserRole.admin:
         _navigationItems = [
-          NavigationItem(title: 'Dashboard', icon: Iconsax.home, route: '/dashboard'),
-          NavigationItem(title: 'Settings', icon: Iconsax.setting, route: '/settings'),
+          NavigationItem(
+              title: 'Dashboard', icon: Iconsax.home, route: '/dashboard'),
+          NavigationItem(
+              title: 'Settings', icon: Iconsax.setting, route: '/settings'),
         ];
         break;
     }
@@ -225,7 +233,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     _selectedIndex = _navigationItems.indexWhere(
       (item) => widget.location.startsWith(item.route),
     );
-    
+
     // Ensure we have a valid selected index, default to 0
     if (_selectedIndex == -1 && _navigationItems.isNotEmpty) {
       _selectedIndex = 0;
@@ -237,9 +245,10 @@ class _MainShellState extends ConsumerState<MainShell> {
     final isDarkMode = ref.watch(themeProvider);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final scaffoldBackgroundColor = isDarkMode ? const Color(0xFF0A1628) : const Color(0xFFF0F4F8);
-    final bottomNavColor = isDarkMode 
-        ? const Color(0xFF0A1628).withOpacity(0.9) 
+    final scaffoldBackgroundColor =
+        isDarkMode ? const Color(0xFF0A1628) : const Color(0xFFF0F4F8);
+    final bottomNavColor = isDarkMode
+        ? const Color(0xFF0A1628).withOpacity(0.9)
         : Colors.white.withOpacity(0.92);
 
     return Scaffold(
@@ -299,7 +308,9 @@ class _MainShellState extends ConsumerState<MainShell> {
                                 ? const Color(0xFF4A90D9)
                                 : colorScheme.onSurface.withOpacity(0.6),
                             fontSize: 10,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                         ),
                       ],

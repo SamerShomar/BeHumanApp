@@ -43,3 +43,13 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Gradle build output and local tooling config
+/android/build/
+/android/.gradle/
+/android/local.properties
+
+# Release signing material - never commit these
+/android/key.properties
+*.jks
+*.keystore
