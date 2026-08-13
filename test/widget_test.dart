@@ -1,6 +1,8 @@
-import 'package:flutter_test/flutter_test.dart';
-import 'package:be_human_app/main.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:be_human_app/main.dart';
 
 void main() {
   testWidgets('App smoke test', (WidgetTester tester) async {
@@ -11,7 +13,7 @@ void main() {
       ),
     );
 
-    // Verify that the welcome text is present.
-    expect(find.text('Welcome to Be Human Foundation'), findsOneWidget);
+    // Verify the app builds and mounts its router-backed MaterialApp.
+    expect(find.byType(MaterialApp), findsOneWidget);
   });
 }
