@@ -15,6 +15,11 @@ class AppLocalizations {
   static final Map<String, Map<String, String>> _translations = {
     'en': {
       'app_title': 'Be Human Foundation',
+      'no_internet_title': 'No internet connection',
+      'no_internet_body': 'Check your network and try again. The app reconnects on its own once you are back online.',
+      'retry': 'Try again',
+      'still_offline': 'Still no connection',
+      'auto_reconnect_hint': 'Reconnecting automatically…',
       'forgot_password': 'Forgot password?',
       'reset_needs_email': 'Enter your email first',
       'reset_sent': 'If the address is registered, a reset link has been sent',
@@ -102,6 +107,11 @@ class AppLocalizations {
     },
     'ar': {
       'app_title': 'مؤسسة بي هيومان',
+      'no_internet_title': 'لا يوجد اتصال بالإنترنت',
+      'no_internet_body': 'تحقق من شبكتك وحاول مرة أخرى. سيتابع التطبيق تلقائياً بمجرد عودة الاتصال.',
+      'retry': 'إعادة المحاولة',
+      'still_offline': 'ما زال لا يوجد اتصال',
+      'auto_reconnect_hint': 'جارٍ إعادة الاتصال تلقائياً…',
       'forgot_password': 'نسيت كلمة المرور؟',
       'reset_needs_email': 'أدخل بريدك الإلكتروني أولاً',
       'reset_sent': 'إن كان البريد مسجلاً فقد أُرسل رابط الاستعادة',
@@ -189,6 +199,11 @@ class AppLocalizations {
     },
     'nl': {
       'app_title': 'Be Human Foundation',
+      'no_internet_title': 'Geen internetverbinding',
+      'no_internet_body': 'Controleer uw netwerk en probeer opnieuw. De app gaat vanzelf verder zodra u weer online bent.',
+      'retry': 'Opnieuw proberen',
+      'still_offline': 'Nog steeds geen verbinding',
+      'auto_reconnect_hint': 'Automatisch opnieuw verbinden…',
       'forgot_password': 'Wachtwoord vergeten?',
       'reset_needs_email': 'Voer eerst uw e-mailadres in',
       'reset_sent': 'Als het adres bekend is, is er een herstellink verstuurd',
