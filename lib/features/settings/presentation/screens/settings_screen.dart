@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:be_human_app/core/languages/app_localizations.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
-import 'package:be_human_app/core/utils/app_mock_data.dart';
 import 'package:be_human_app/core/providers/theme_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -17,26 +17,35 @@ class SettingsScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(AppLocalizations.of(context, 'settings_title'))),
+      appBar:
+          AppBar(title: Text(AppLocalizations.of(context, 'settings_title'))),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16.w),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.r)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24.r)),
               child: Padding(
                 padding: EdgeInsets.all(16.w),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(user?.name ?? AppLocalizations.of(context, 'user_default'), style: theme.textTheme.titleLarge),
+                    Text(
+                        user?.name ??
+                            AppLocalizations.of(context, 'user_default'),
+                        style: theme.textTheme.titleLarge),
                     SizedBox(height: 6.h),
                     Text(user?.email ?? '', style: theme.textTheme.bodyMedium),
                     SizedBox(height: 6.h),
-                    Text('${AppLocalizations.of(context, 'team_label')}: ${user?.team.name ?? ''}', style: theme.textTheme.bodyMedium),
+                    Text(
+                        '${AppLocalizations.of(context, 'team_label')}: ${user?.team.name ?? ''}',
+                        style: theme.textTheme.bodyMedium),
                     SizedBox(height: 6.h),
-                    Text('${AppLocalizations.of(context, 'role_label')}: ${user?.role.name ?? ''}', style: theme.textTheme.bodyMedium),
+                    Text(
+                        '${AppLocalizations.of(context, 'role_label')}: ${user?.role.name ?? ''}',
+                        style: theme.textTheme.bodyMedium),
                   ],
                 ),
               ),
@@ -50,23 +59,33 @@ class SettingsScreen extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(AppLocalizations.of(context, 'theme_mode'), style: theme.textTheme.bodyLarge),
+                Text(AppLocalizations.of(context, 'theme_mode'),
+                    style: theme.textTheme.bodyLarge),
                 Switch(
                   value: isDark,
-                  onChanged: (v) => ref.read(themeProvider.notifier).setTheme(v),
+                  onChanged: (v) =>
+                      ref.read(themeProvider.notifier).setTheme(v),
                 ),
               ],
             ),
             SizedBox(height: 8.h),
             Row(
               children: [
-                Expanded(child: Text(AppLocalizations.of(context, 'language'), style: theme.textTheme.bodyLarge)),
+                Expanded(
+                    child: Text(AppLocalizations.of(context, 'language'),
+                        style: theme.textTheme.bodyLarge)),
                 DropdownButton<Locale>(
                   value: ref.watch(localeProvider),
                   items: [
-                    DropdownMenuItem(value: const Locale('en'), child: Text(AppLocalizations.of(context, 'english'))),
-                    DropdownMenuItem(value: const Locale('ar'), child: Text(AppLocalizations.of(context, 'arabic'))),
-                    DropdownMenuItem(value: const Locale('nl'), child: Text(AppLocalizations.of(context, 'dutch'))),
+                    DropdownMenuItem(
+                        value: const Locale('en'),
+                        child: Text(AppLocalizations.of(context, 'english'))),
+                    DropdownMenuItem(
+                        value: const Locale('ar'),
+                        child: Text(AppLocalizations.of(context, 'arabic'))),
+                    DropdownMenuItem(
+                        value: const Locale('nl'),
+                        child: Text(AppLocalizations.of(context, 'dutch'))),
                   ],
                   onChanged: (locale) {
                     if (locale != null) {
@@ -86,7 +105,8 @@ class SettingsScreen extends ConsumerWidget {
                   context.go('/login');
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('خطأ في تسجيل الخروج: ${e.toString()}')),
+                    SnackBar(
+                        content: Text('خطأ في تسجيل الخروج: ${e.toString()}')),
                   );
                 }
               },
@@ -109,29 +129,55 @@ class SettingsScreen extends ConsumerWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: oldCtrl, decoration: InputDecoration(labelText: AppLocalizations.of(context, 'old_password')), obscureText: true),
-            TextField(controller: newCtrl, decoration: InputDecoration(labelText: AppLocalizations.of(context, 'new_password')), obscureText: true),
+            TextField(
+                controller: oldCtrl,
+                decoration: InputDecoration(
+                    labelText: AppLocalizations.of(context, 'old_password')),
+                obscureText: true),
+            TextField(
+                controller: newCtrl,
+                decoration: InputDecoration(
+                    labelText: AppLocalizations.of(context, 'new_password')),
+                obscureText: true),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(AppLocalizations.of(context, 'cancel'))),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(AppLocalizations.of(context, 'cancel'))),
           ElevatedButton(
-            onPressed: () {
-              final email = ProviderScope.containerOf(context).read(currentUserStreamProvider).value?.email;
-              if (email == null) {
-                Navigator.of(ctx).pop();
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              final navigator = Navigator.of(ctx);
+              final updatedMsg =
+                  AppLocalizations.of(context, 'password_updated');
+              final invalidMsg =
+                  AppLocalizations.of(context, 'password_invalid');
+
+              final user = FirebaseAuth.instance.currentUser;
+              final email = user?.email;
+              if (user == null || email == null) {
+                navigator.pop();
                 return;
               }
 
-              final old = oldCtrl.text;
-              final nw = newCtrl.text;
-              final stored = AppMockData.mockPasswords[email];
-              if (stored != null && stored == old) {
-                AppMockData.mockPasswords[email] = nw;
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context, 'password_updated'))));
-                Navigator.of(ctx).pop();
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context, 'password_invalid'))));
+              // Firebase requires a recent sign-in before a password change,
+              // so re-authenticate with the old password first. That doubles
+              // as the check that the user actually knows it.
+              try {
+                await user.reauthenticateWithCredential(
+                  EmailAuthProvider.credential(
+                    email: email,
+                    password: oldCtrl.text,
+                  ),
+                );
+                await user.updatePassword(newCtrl.text);
+                messenger.showSnackBar(SnackBar(content: Text(updatedMsg)));
+                navigator.pop();
+              } on FirebaseAuthException catch (e) {
+                messenger.showSnackBar(
+                  SnackBar(content: Text(e.message ?? invalidMsg)),
+                );
               }
             },
             child: const Text('حفظ'),

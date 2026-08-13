@@ -14,8 +14,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   bool _isChecking = true;
 
   Future<bool> _checkInternet() async {
-    final connectivityResult = await Connectivity().checkConnectivity();
-    return connectivityResult != ConnectivityResult.none;
+    // checkConnectivity() returns a list; the device is offline only when
+    // every reported result is `none`.
+    final results = await Connectivity().checkConnectivity();
+    return results.any((r) => r != ConnectivityResult.none);
   }
 
   @override
@@ -32,15 +34,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     try {
       // Check internet connection
       final hasInternet = await _checkInternet();
-      
+
       // Wait 2 seconds for splash animation
       await Future.delayed(const Duration(seconds: 2));
-      
+
       if (mounted) {
         setState(() {
           _isChecking = false;
         });
-        
+
         if (hasInternet) {
           // Navigate to login screen
           context.go('/login');
@@ -66,7 +68,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: isDarkMode ? const Color(0xFF0A1628) : const Color(0xFFF0F4F8),
+      backgroundColor:
+          isDarkMode ? const Color(0xFF0A1628) : const Color(0xFFF0F4F8),
       body: SafeArea(
         child: Center(
           child: _isChecking

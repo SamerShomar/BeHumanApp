@@ -22,15 +22,22 @@ class FinanceScreen extends ConsumerWidget {
           children: [
             Row(
               children: [
-                Expanded(child: _balanceCard('الرصيد', finances['balance'] ?? 0, Colors.blue)),
+                Expanded(
+                    child: _balanceCard(
+                        'الرصيد', finances['balance'] ?? 0, Colors.blue)),
                 const SizedBox(width: 8),
-                Expanded(child: _balanceCard('الوارد', finances['totalIncome'] ?? 0, Colors.green)),
+                Expanded(
+                    child: _balanceCard(
+                        'الوارد', finances['totalIncome'] ?? 0, Colors.green)),
                 const SizedBox(width: 8),
-                Expanded(child: _balanceCard('الصادر', finances['totalExpense'] ?? 0, Colors.red)),
+                Expanded(
+                    child: _balanceCard(
+                        'الصادر', finances['totalExpense'] ?? 0, Colors.red)),
               ],
             ),
             const SizedBox(height: 12),
-            Text(AppLocalizations.of(context, 'transactions'), style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(AppLocalizations.of(context, 'transactions'),
+                style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Expanded(
               child: transactions.when(
@@ -42,10 +49,18 @@ class FinanceScreen extends ConsumerWidget {
                     final t = transactions[i];
                     final isIncome = t['type'] == 'income';
                     return ListTile(
-                      leading: CircleAvatar(backgroundColor: isIncome ? Colors.green : Colors.red, child: Icon(isIncome ? Icons.arrow_downward : Icons.arrow_upward, color: Colors.white)),
+                      leading: CircleAvatar(
+                          backgroundColor: isIncome ? Colors.green : Colors.red,
+                          child: Icon(
+                              isIncome
+                                  ? Icons.arrow_downward
+                                  : Icons.arrow_upward,
+                              color: Colors.white)),
                       title: Text(t['description'] ?? t['fileName'] ?? ''),
-                      subtitle: Text('${t['amount'] ?? 0} — ${t['date'] ?? ''}'),
-                      trailing: Text(isIncome ? '+${t['amount']}' : '-${t['amount']}'),
+                      subtitle:
+                          Text('${t['amount'] ?? 0} — ${t['date'] ?? ''}'),
+                      trailing: Text(
+                          isIncome ? '+${t['amount']}' : '-${t['amount']}'),
                     );
                   },
                 ),
@@ -55,15 +70,15 @@ class FinanceScreen extends ConsumerWidget {
         ),
       ),
       floatingActionButton: ref.watch(currentUserStreamProvider).when(
-        loading: () => null,
-        error: (e, s) => null,
-        data: (user) => (user != null && user.hasFinancialAccess)
-            ? FloatingActionButton(
-                onPressed: () => _showAddTransactionDialog(context, ref),
-                child: const Icon(Icons.add),
-              )
-            : null,
-      ),
+            loading: () => null,
+            error: (e, s) => null,
+            data: (user) => (user != null && user.hasFinancialAccess)
+                ? FloatingActionButton(
+                    onPressed: () => _showAddTransactionDialog(context, ref),
+                    child: const Icon(Icons.add),
+                  )
+                : null,
+          ),
     );
   }
 
@@ -76,7 +91,9 @@ class FinanceScreen extends ConsumerWidget {
           children: [
             Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text('${value.toStringAsFixed(2)}\$', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 18)),
+            Text('${value.toStringAsFixed(2)}\$',
+                style: TextStyle(
+                    color: color, fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
       ),
@@ -98,18 +115,29 @@ class FinanceScreen extends ConsumerWidget {
             DropdownButtonFormField<String>(
               initialValue: type,
               items: [
-                DropdownMenuItem(value: 'income', child: Text(AppLocalizations.of(context, 'income_label'))),
-                DropdownMenuItem(value: 'expense', child: Text(AppLocalizations.of(context, 'expense_label'))),
+                DropdownMenuItem(
+                    value: 'income',
+                    child: Text(AppLocalizations.of(context, 'income_label'))),
+                DropdownMenuItem(
+                    value: 'expense',
+                    child: Text(AppLocalizations.of(context, 'expense_label'))),
               ],
               onChanged: (v) => type = v ?? 'income',
               decoration: const InputDecoration(labelText: 'النوع'),
             ),
-            TextField(controller: amountCtrl, decoration: const InputDecoration(labelText: 'المبلغ'), keyboardType: TextInputType.number),
-            TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'الوصف')),
+            TextField(
+                controller: amountCtrl,
+                decoration: const InputDecoration(labelText: 'المبلغ'),
+                keyboardType: TextInputType.number),
+            TextField(
+                controller: descCtrl,
+                decoration: const InputDecoration(labelText: 'الوصف')),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('إلغاء')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('إلغاء')),
           ElevatedButton(
             onPressed: () async {
               final amount = double.tryParse(amountCtrl.text) ?? 0.0;
@@ -126,10 +154,13 @@ class FinanceScreen extends ConsumerWidget {
                 final adminService = ref.read(firestoreAdminServiceProvider);
                 await adminService.addTransaction(tx);
                 Navigator.of(ctx).pop();
-                ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('تم إضافة الحركة المالية بنجاح')));
+                ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                    content: Text('تم إضافة الحركة المالية بنجاح')));
               } catch (e) {
                 ScaffoldMessenger.of(ctx).showSnackBar(
-                  SnackBar(content: Text('فشل إضافة الحركة المالية: ${e.toString()}')),
+                  SnackBar(
+                      content:
+                          Text('فشل إضافة الحركة المالية: ${e.toString()}')),
                 );
               }
             },

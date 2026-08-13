@@ -7,7 +7,8 @@ class LocaleNotifier extends StateNotifier<Locale> {
   void setLocale(Locale locale) => state = locale;
 }
 
-final localeProvider = StateNotifierProvider<LocaleNotifier, Locale>((ref) => LocaleNotifier());
+final localeProvider =
+    StateNotifierProvider<LocaleNotifier, Locale>((ref) => LocaleNotifier());
 
 class AppLocalizations {
   static const supportedLocales = [Locale('en'), Locale('ar'), Locale('nl')];
@@ -72,7 +73,8 @@ class AppLocalizations {
       'close': 'Close',
       'proposal_added': 'Proposal added',
       'content_updated': 'Website content updated',
-      'content_update_failed': 'Failed to pull website content, using fallback text',
+      'content_update_failed':
+          'Failed to pull website content, using fallback text',
       'role_updated': 'Role updated',
       'team_label': 'Team',
       'role_label': 'Role',
@@ -240,7 +242,8 @@ class AppLocalizations {
     },
   };
 
-  static String translate(Locale locale, String key, [Map<String, String>? params]) {
+  static String translate(Locale locale, String key,
+      [Map<String, String>? params]) {
     final map = _translations[locale.languageCode] ?? _translations['en']!;
     var value = map[key] ?? _translations['en']![key] ?? key;
     params?.forEach((k, v) {
@@ -249,7 +252,8 @@ class AppLocalizations {
     return value;
   }
 
-  static String of(BuildContext context, String key, [Map<String, String>? params]) {
+  static String of(BuildContext context, String key,
+      [Map<String, String>? params]) {
     final locale = ProviderScope.containerOf(context).read(localeProvider);
     return translate(locale, key, params);
   }

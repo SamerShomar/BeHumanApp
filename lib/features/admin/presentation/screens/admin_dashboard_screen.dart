@@ -17,7 +17,8 @@ class AdminDashboardScreen extends ConsumerWidget {
     if (user == null || !user.isAdmin) {
       return Scaffold(
         body: Center(
-          child: Text('ليس لديك صلاحية', style: Theme.of(context).textTheme.titleLarge),
+          child: Text('ليس لديك صلاحية',
+              style: Theme.of(context).textTheme.titleLarge),
         ),
       );
     }
@@ -39,9 +40,11 @@ class AdminDashboardScreen extends ConsumerWidget {
                 try {
                   final data = await scraper.fetch();
                   ref.read(aboutProvider.notifier).setAll(data);
-                  snack.showSnackBar(const SnackBar(content: Text('تم تحديث المحتوى من الموقع')));
+                  snack.showSnackBar(const SnackBar(
+                      content: Text('تم تحديث المحتوى من الموقع')));
                 } catch (e) {
-                  snack.showSnackBar(const SnackBar(content: Text('فشل سحب المحتوى، تم استخدام نصوص بديلة')));
+                  snack.showSnackBar(const SnackBar(
+                      content: Text('فشل سحب المحتوى، تم استخدام نصوص بديلة')));
                 }
               },
               child: const Text('سحب محتوى الموقع'),
@@ -61,7 +64,9 @@ class AdminDashboardScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(AppLocalizations.of(context, 'about_org'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(AppLocalizations.of(context, 'about_org'),
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     Text('Mission: ${about['mission'] ?? ''}'),
                     const SizedBox(height: 6),
@@ -78,7 +83,9 @@ class AdminDashboardScreen extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(AppLocalizations.of(context, 'proposals'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(AppLocalizations.of(context, 'proposals'),
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
                 ElevatedButton(
                   onPressed: () => _showAddProposalDialog(context, ref),
                   child: const Text('إضافة مقترح جديد'),
@@ -87,10 +94,12 @@ class AdminDashboardScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             ...proposals.value?.map((p) => ListTile(
-                  title: Text(p['title'] ?? ''),
-                  subtitle: Text('${p['status'] ?? ''} • ${p['date'] ?? ''}'),
-                  trailing: Text('${p['amount'] ?? ''}'),
-                )) ?? [],
+                      title: Text(p['title'] ?? ''),
+                      subtitle:
+                          Text('${p['status'] ?? ''} • ${p['date'] ?? ''}'),
+                      trailing: Text('${p['amount'] ?? ''}'),
+                    )) ??
+                [],
 
             const SizedBox(height: 16),
 
@@ -98,7 +107,9 @@ class AdminDashboardScreen extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(AppLocalizations.of(context, 'financial'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(AppLocalizations.of(context, 'financial'),
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
                 ElevatedButton(
                   onPressed: () => _showAddTransactionDialog(context, ref),
                   child: const Text('إضافة حركة وارد/صادر'),
@@ -123,7 +134,8 @@ class AdminDashboardScreen extends ConsumerWidget {
             const SizedBox(height: 16),
 
             // Users
-            const Text('الأعضاء', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('الأعضاء',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             // TODO: Implement users list display from Firestore
             // ...users.map((u) => ListTile(
@@ -161,13 +173,22 @@ class AdminDashboardScreen extends ConsumerWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'العنوان')),
-            TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'الوصف')),
-            TextField(controller: amountCtrl, decoration: const InputDecoration(labelText: 'المبلغ'), keyboardType: TextInputType.number),
+            TextField(
+                controller: titleCtrl,
+                decoration: const InputDecoration(labelText: 'العنوان')),
+            TextField(
+                controller: descCtrl,
+                decoration: const InputDecoration(labelText: 'الوصف')),
+            TextField(
+                controller: amountCtrl,
+                decoration: const InputDecoration(labelText: 'المبلغ'),
+                keyboardType: TextInputType.number),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('إلغاء')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('إلغاء')),
           ElevatedButton(
             onPressed: () async {
               final id = 'p${DateTime.now().millisecondsSinceEpoch}';
@@ -185,7 +206,8 @@ class AdminDashboardScreen extends ConsumerWidget {
                 final adminService = ref.read(firestoreAdminServiceProvider);
                 await adminService.addProposal(proposal);
                 Navigator.of(ctx).pop();
-                ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('تم إضافة المقترح بنجاح')));
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(content: Text('تم إضافة المقترح بنجاح')));
               } catch (e) {
                 ScaffoldMessenger.of(ctx).showSnackBar(
                   SnackBar(content: Text('فشل إضافة المقترح: ${e.toString()}')),
@@ -220,12 +242,19 @@ class AdminDashboardScreen extends ConsumerWidget {
               onChanged: (v) => type = v ?? 'income',
               decoration: const InputDecoration(labelText: 'النوع'),
             ),
-            TextField(controller: amountCtrl, decoration: const InputDecoration(labelText: 'المبلغ'), keyboardType: TextInputType.number),
-            TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'الوصف')),
+            TextField(
+                controller: amountCtrl,
+                decoration: const InputDecoration(labelText: 'المبلغ'),
+                keyboardType: TextInputType.number),
+            TextField(
+                controller: descCtrl,
+                decoration: const InputDecoration(labelText: 'الوصف')),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('إلغاء')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('إلغاء')),
           ElevatedButton(
             onPressed: () async {
               final amount = double.tryParse(amountCtrl.text) ?? 0.0;
@@ -242,10 +271,13 @@ class AdminDashboardScreen extends ConsumerWidget {
                 final adminService = ref.read(firestoreAdminServiceProvider);
                 await adminService.addTransaction(transaction);
                 Navigator.of(ctx).pop();
-                ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('تم إضافة الحركة المالية بنجاح')));
+                ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                    content: Text('تم إضافة الحركة المالية بنجاح')));
               } catch (e) {
                 ScaffoldMessenger.of(ctx).showSnackBar(
-                  SnackBar(content: Text('فشل إضافة الحركة المالية: ${e.toString()}')),
+                  SnackBar(
+                      content:
+                          Text('فشل إضافة الحركة المالية: ${e.toString()}')),
                 );
               }
             },

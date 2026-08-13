@@ -47,16 +47,6 @@ class AppMockData {
     ),
   ];
 
-  // mutable mock passwords to allow change-password flow
-  static Map<String, String> mockPasswords = {
-    'admin@behuman.org': 'admin@2026',
-    'samershomar@behuman.org': '12345678',
-    'mahmoudabuaisha@behuman.org': '12345678',
-    'lottegraat@behuman.org': '12345678',
-    'nellie@behuman.org': '12345678',
-    'foekje@behuman.org': '12345678',
-  };
-
   // initial proposals are defined below as a mutable list
 
   // Mutable finances map so we can update totals at runtime

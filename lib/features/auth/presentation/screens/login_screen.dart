@@ -19,14 +19,16 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController(text: 'admin@2026');
-  
+  final _passwordController = TextEditingController();
+
   bool isLoading = false;
   String? errorMessage;
 
   Future<bool> _checkInternet() async {
-    final connectivityResult = await Connectivity().checkConnectivity();
-    return connectivityResult != ConnectivityResult.none;
+    // checkConnectivity() returns a list; the device is offline only when
+    // every reported result is `none`.
+    final results = await Connectivity().checkConnectivity();
+    return results.any((r) => r != ConnectivityResult.none);
   }
 
   Future<void> _handleLogin() async {
@@ -64,7 +66,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       setState(() {
         isLoading = false;
       });
-      
+
       if (e.code == 'user-not-found') {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('البريد الإلكتروني غير مسجل')),
@@ -88,24 +90,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  Future<void> _handleTestLogin() async {
-    try {
-      // Test with admin credentials
-      const email = 'admin@behuman.org';
-      const password = 'admin@2026';
-
-      final auth = FirebaseAuth.instance;
-      await auth.signInWithEmailAndPassword(email: email, password: password);
-      
-      // The user will be automatically loaded through the stream provider
-      context.go('/home');
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل تسجيل الدخول التجريبي: ${e.toString()}')),
-      );
-    }
-  }
-
   @override
   void dispose() {
     _emailController.dispose();
@@ -124,7 +108,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [colorScheme.primary, colorScheme.secondary.withOpacity(0.9)],
+            colors: [
+              colorScheme.primary,
+              colorScheme.secondary.withOpacity(0.9)
+            ],
           ),
         ),
         child: Stack(
@@ -166,17 +153,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         decoration: BoxDecoration(
                           color: colorScheme.surface.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(24.r),
-                          border: Border.all(color: colorScheme.onSurface.withOpacity(0.12)),
+                          border: Border.all(
+                              color: colorScheme.onSurface.withOpacity(0.12)),
                         ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Image.asset(
-                              'assets/images/logo.png',
+                              'assets/images/logo.PNG',
                               width: 120.w,
                               height: 120.h,
                               fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                              errorBuilder: (_, __, ___) =>
+                                  const SizedBox.shrink(),
                             ),
                             SizedBox(height: 16.h),
                             Text(
@@ -191,13 +180,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             SizedBox(height: 28.h),
                             _GlassTextField(
                               controller: _emailController,
-                              hintText: AppLocalizations.of(context, 'email_hint'),
+                              hintText:
+                                  AppLocalizations.of(context, 'email_hint'),
                               keyboardType: TextInputType.emailAddress,
                             ),
                             SizedBox(height: 16.h),
                             _GlassTextField(
                               controller: _passwordController,
-                              hintText: AppLocalizations.of(context, 'password_hint'),
+                              hintText:
+                                  AppLocalizations.of(context, 'password_hint'),
                               obscureText: true,
                             ),
                             if (errorMessage != null)
@@ -234,36 +225,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                           strokeWidth: 2,
                                         ),
                                       )
-                                    : Text(AppLocalizations.of(context, 'login_button')),
-                              ),
-                            ),
-                            SizedBox(height: 16.h),
-                            Text(
-                              'إذا كان تسجيل الدخول لا يعمل، جرب زر التسجيل التجريبي',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12.sp,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            SizedBox(height: 16.h),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 45.h,
-                              child: OutlinedButton(
-                                onPressed: _handleTestLogin,
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: colorScheme.onSurface,
-                                  side: BorderSide(color: colorScheme.outline),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16.r),
-                                  ),
-                                ),
-                                child: Text(
-                                  'تسجيل دخول تجريبي (admin@behuman.org)',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(fontSize: 12.sp),
-                                ),
+                                    : Text(AppLocalizations.of(
+                                        context, 'login_button')),
                               ),
                             ),
                           ],

@@ -24,18 +24,27 @@ class ProposalsListScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: Text(AppLocalizations.of(context, 'proposals'))),
       body: ListView.builder(
-        padding: EdgeInsets.only(top: 12.h, bottom: 80.h, left: 12.w, right: 12.w),
+        padding:
+            EdgeInsets.only(top: 12.h, bottom: 80.h, left: 12.w, right: 12.w),
         itemCount: proposals.value?.length ?? 0,
         itemBuilder: (context, index) {
           final p = proposals.value![index];
           return Card(
             margin: EdgeInsets.only(bottom: 12.h),
             color: scheme.surface,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20.r)),
             child: ListTile(
-              contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-              title: Text(p['title'] ?? p['fileName'] ?? AppLocalizations.of(context, 'proposal_placeholder'), style: theme.textTheme.bodyLarge),
-              subtitle: Text('${p['status'] ?? ''} • ${p['submittedByName'] ?? ''}', style: theme.textTheme.bodyMedium),
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+              title: Text(
+                  p['title'] ??
+                      p['fileName'] ??
+                      AppLocalizations.of(context, 'proposal_placeholder'),
+                  style: theme.textTheme.bodyLarge),
+              subtitle: Text(
+                  '${p['status'] ?? ''} • ${p['submittedByName'] ?? ''}',
+                  style: theme.textTheme.bodyMedium),
               onTap: () => _showProposalDetails(context, ref, p, user),
             ),
           );
@@ -52,7 +61,8 @@ class ProposalsListScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _pickPdfAndAdd(BuildContext context, WidgetRef ref, AppUser user) async {
+  Future<void> _pickPdfAndAdd(
+      BuildContext context, WidgetRef ref, AppUser user) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
@@ -83,7 +93,8 @@ class ProposalsListScreen extends ConsumerWidget {
           try {
             final adminService = ref.read(firestoreAdminServiceProvider);
             await adminService.addProposal(newProposal);
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context, 'proposal_added'))));
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(AppLocalizations.of(context, 'proposal_added'))));
           } catch (e) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('فشل إضافة المقترح: ${e.toString()}')),
@@ -97,8 +108,9 @@ class ProposalsListScreen extends ConsumerWidget {
           return;
         }
       }
-      
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لم يتم تحميل الملف')));
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('لم يتم تحميل الملف')));
       return;
     }
 
@@ -119,7 +131,8 @@ class ProposalsListScreen extends ConsumerWidget {
     try {
       final adminService = ref.read(firestoreAdminServiceProvider);
       await adminService.addProposal(newProposal);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context, 'proposal_added'))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(AppLocalizations.of(context, 'proposal_added'))));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('فشل إضافة المقترح: ${e.toString()}')),
@@ -127,26 +140,32 @@ class ProposalsListScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _showProposalDetails(BuildContext context, WidgetRef ref, Map<String, dynamic> p, AppUser? user) async {
-    final isReviewer = user != null && (user.team == UserTeam.netherlands || user.isAdmin);
+  Future<void> _showProposalDetails(BuildContext context, WidgetRef ref,
+      Map<String, dynamic> p, AppUser? user) async {
+    final isReviewer =
+        user != null && (user.team == UserTeam.netherlands || user.isAdmin);
 
     if (p['pdfBase64'] != null && p['pdfBase64'] is String) {
       final base64Pdf = p['pdfBase64'] as String;
-      
+
       showDialog(
         context: context,
         builder: (ctx) {
           return AlertDialog(
-            title: Text(p['title'] ?? AppLocalizations.of(context, 'proposal_details')),
+            title: Text(
+                p['title'] ?? AppLocalizations.of(context, 'proposal_details')),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('${AppLocalizations.of(context, 'status')}: ${p['status'] ?? ''}'),
+                Text(
+                    '${AppLocalizations.of(context, 'status')}: ${p['status'] ?? ''}'),
                 const SizedBox(height: 8),
-                Text('${AppLocalizations.of(context, 'submitted_by')}: ${p['submittedByName'] ?? ''}'),
+                Text(
+                    '${AppLocalizations.of(context, 'submitted_by')}: ${p['submittedByName'] ?? ''}'),
                 const SizedBox(height: 8),
-                Text('${AppLocalizations.of(context, 'file_name')}: ${p['fileName'] ?? AppLocalizations.of(context, 'no_file')}'),
+                Text(
+                    '${AppLocalizations.of(context, 'file_name')}: ${p['fileName'] ?? AppLocalizations.of(context, 'no_file')}'),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () {
@@ -158,26 +177,32 @@ class ProposalsListScreen extends ConsumerWidget {
               ],
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(AppLocalizations.of(context, 'close'))),
+              TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: Text(AppLocalizations.of(context, 'close'))),
               if (isReviewer) ...[
                 TextButton(
                   onPressed: () async {
                     try {
-                      final adminService = ref.read(firestoreAdminServiceProvider);
+                      final adminService =
+                          ref.read(firestoreAdminServiceProvider);
                       await adminService.updateProposalStatus(p['id'], 'مقبول');
                       Navigator.of(ctx).pop();
                     } catch (e) {
                       ScaffoldMessenger.of(ctx).showSnackBar(
-                        SnackBar(content: Text('فشل الموافقة: ${e.toString()}')),
+                        SnackBar(
+                            content: Text('فشل الموافقة: ${e.toString()}')),
                       );
                     }
                   },
-                  child: Text(AppLocalizations.of(context, 'approve'), style: const TextStyle(color: Colors.green)),
+                  child: Text(AppLocalizations.of(context, 'approve'),
+                      style: const TextStyle(color: Colors.green)),
                 ),
                 TextButton(
                   onPressed: () async {
                     try {
-                      final adminService = ref.read(firestoreAdminServiceProvider);
+                      final adminService =
+                          ref.read(firestoreAdminServiceProvider);
                       await adminService.updateProposalStatus(p['id'], 'مرفوض');
                       Navigator.of(ctx).pop();
                     } catch (e) {
@@ -186,7 +211,8 @@ class ProposalsListScreen extends ConsumerWidget {
                       );
                     }
                   },
-                  child: Text(AppLocalizations.of(context, 'reject'), style: const TextStyle(color: Colors.red)),
+                  child: Text(AppLocalizations.of(context, 'reject'),
+                      style: const TextStyle(color: Colors.red)),
                 ),
               ],
             ],
@@ -198,39 +224,49 @@ class ProposalsListScreen extends ConsumerWidget {
         context: context,
         builder: (ctx) {
           return AlertDialog(
-            title: Text(p['title'] ?? AppLocalizations.of(context, 'proposal_details')),
+            title: Text(
+                p['title'] ?? AppLocalizations.of(context, 'proposal_details')),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('${AppLocalizations.of(context, 'status')}: ${p['status'] ?? ''}'),
+                Text(
+                    '${AppLocalizations.of(context, 'status')}: ${p['status'] ?? ''}'),
                 const SizedBox(height: 8),
-                Text('${AppLocalizations.of(context, 'submitted_by')}: ${p['submittedByName'] ?? ''}'),
+                Text(
+                    '${AppLocalizations.of(context, 'submitted_by')}: ${p['submittedByName'] ?? ''}'),
                 const SizedBox(height: 8),
-                Text('${AppLocalizations.of(context, 'file_name')}: ${p['fileName'] ?? AppLocalizations.of(context, 'no_file')}'),
+                Text(
+                    '${AppLocalizations.of(context, 'file_name')}: ${p['fileName'] ?? AppLocalizations.of(context, 'no_file')}'),
               ],
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(AppLocalizations.of(context, 'close'))),
+              TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: Text(AppLocalizations.of(context, 'close'))),
               if (isReviewer) ...[
                 TextButton(
                   onPressed: () async {
                     try {
-                      final adminService = ref.read(firestoreAdminServiceProvider);
+                      final adminService =
+                          ref.read(firestoreAdminServiceProvider);
                       await adminService.updateProposalStatus(p['id'], 'مقبول');
                       Navigator.of(ctx).pop();
                     } catch (e) {
                       ScaffoldMessenger.of(ctx).showSnackBar(
-                        SnackBar(content: Text('فشل الموافقة: ${e.toString()}')),
+                        SnackBar(
+                            content: Text('فشل الموافقة: ${e.toString()}')),
                       );
                     }
                   },
-                  child: Text(AppLocalizations.of(context, 'approve'), style: const TextStyle(color: Colors.green)),
+                  child: Text(AppLocalizations.of(context, 'approve'),
+                      style: const TextStyle(color: Colors.green)),
                 ),
                 TextButton(
                   onPressed: () async {
                     try {
-                      final adminService = ref.read(firestoreAdminServiceProvider);
+                      final adminService =
+                          ref.read(firestoreAdminServiceProvider);
                       await adminService.updateProposalStatus(p['id'], 'مرفوض');
                       Navigator.of(ctx).pop();
                     } catch (e) {
@@ -239,7 +275,8 @@ class ProposalsListScreen extends ConsumerWidget {
                       );
                     }
                   },
-                  child: Text(AppLocalizations.of(context, 'reject'), style: const TextStyle(color: Colors.red)),
+                  child: Text(AppLocalizations.of(context, 'reject'),
+                      style: const TextStyle(color: Colors.red)),
                 ),
               ],
             ],

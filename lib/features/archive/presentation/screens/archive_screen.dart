@@ -16,13 +16,15 @@ class ArchiveScreen extends ConsumerWidget {
 
     for (var p in proposals.value ?? []) {
       if (p['fileName'] != null) {
-        items.add({'fileName': p['fileName'], 'type': 'PDF', 'source': 'مقترحات'});
+        items.add(
+            {'fileName': p['fileName'], 'type': 'PDF', 'source': 'مقترحات'});
       }
     }
 
     for (var t in transactions.value ?? []) {
       if (t['fileName'] != null) {
-        items.add({'fileName': t['fileName'], 'type': 'فاتورة', 'source': 'مالية'});
+        items.add(
+            {'fileName': t['fileName'], 'type': 'فاتورة', 'source': 'مالية'});
       }
     }
 

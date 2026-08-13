@@ -7,4 +7,5 @@ class ThemeNotifier extends StateNotifier<bool> {
   void setTheme(bool isDark) => state = isDark;
 }
 
-final themeProvider = StateNotifierProvider<ThemeNotifier, bool>((ref) => ThemeNotifier());
+final themeProvider =
+    StateNotifierProvider<ThemeNotifier, bool>((ref) => ThemeNotifier());

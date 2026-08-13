@@ -13,7 +13,7 @@ class PdfViewerWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pdfBytes = base64Decode(base64Pdf);
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('عرض PDF'),
