@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -98,8 +99,30 @@ class FileStorageService {
     } on TimeoutException {
       throw const FileStorageException('انتهت مهلة الرفع، تحقق من اتصالك وحاول مرة أخرى');
     } on StorageException catch (e) {
-      throw FileStorageException('فشل رفع الملف: ${e.message}');
+      throw FileStorageException(_describe(e));
     }
+  }
+
+  /// Visible for testing the message mapping without a live Supabase.
+  @visibleForTesting
+  String describeForTest(StorageException e) => _describe(e);
+
+  /// Turns Supabase's terse errors into something the person holding the phone
+  /// can act on. "Bucket not found" in particular means a setup step was
+  /// missed, not that anything is wrong with the file.
+  String _describe(StorageException e) {
+    final message = e.message.toLowerCase();
+
+    if (message.contains('bucket not found')) {
+      return 'مساحة التخزين "$_bucket" غير موجودة على Supabase — أنشئها من Storage ثم أعد المحاولة';
+    }
+    if (message.contains('row-level security') || message.contains('unauthorized')) {
+      return 'لا توجد صلاحية للكتابة في "$_bucket" — تحقق من سياسات Storage';
+    }
+    if (message.contains('exceeded') || message.contains('too large')) {
+      return 'الملف أكبر من الحد المسموح على Supabase';
+    }
+    return 'فشل رفع الملف: ${e.message}';
   }
 
   /// Returns a temporary URL for reading [path].
@@ -119,7 +142,7 @@ class FileStorageService {
     } on TimeoutException {
       throw const FileStorageException('انتهت مهلة فتح الملف، تحقق من اتصالك');
     } on StorageException catch (e) {
-      throw FileStorageException('فشل فتح الملف: ${e.message}');
+      throw FileStorageException(_describe(e));
     }
   }
 
