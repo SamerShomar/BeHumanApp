@@ -65,7 +65,15 @@ service cloud.firestore {
 
       // Only reviewers change a proposal's status after submission.
       allow update: if isReviewer();
-      allow delete: if isAdmin();
+
+      // A submitter may withdraw their own proposal while it is still
+      // pending; once reviewed it belongs to the record. Statuses are stored
+      // as stable keys, but documents written before that used the Arabic
+      // label, so both are accepted here.
+      allow delete: if isAdmin()
+        || (hasProfile()
+            && resource.data.submittedBy == request.auth.uid
+            && (resource.data.status == 'pending' || resource.data.status == 'معلق'));
     }
 
     match /transactions/{transactionId} {

@@ -7,6 +7,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:file_picker/file_picker.dart';
 
 import 'package:be_human_app/core/languages/app_localizations.dart';
+import 'package:be_human_app/features/proposals/domain/proposal_status.dart';
 import 'package:be_human_app/core/services/file_storage_service.dart';
 import 'package:be_human_app/features/admin/presentation/providers/admin_providers.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
@@ -42,7 +43,7 @@ class ProposalsListScreen extends ConsumerWidget {
             child: ListTile(
               contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
               title: Text(p['title'] ?? p['fileName'] ?? AppLocalizations.of(context, 'proposal_placeholder'), style: theme.textTheme.bodyLarge),
-              subtitle: Text('${p['status'] ?? ''} • ${p['submittedByName'] ?? ''}', style: theme.textTheme.bodyMedium),
+              subtitle: Text('${ProposalStatus.label(context, p['status'])} • ${p['submittedByName'] ?? ''}', style: theme.textTheme.bodyMedium),
               onTap: () => _showProposalDetails(context, ref, p, user),
             ),
           );
@@ -129,7 +130,7 @@ class ProposalsListScreen extends ConsumerWidget {
         'title': file.name,
         'fileName': file.name,
         'pdfPath': storagePath,
-        'status': 'معلق',
+        'status': ProposalStatus.pending,
         'date': DateTime.now().toIso8601String(),
         'amount': 0.0,
         'submittedBy': user.uid,
@@ -158,6 +159,12 @@ class ProposalsListScreen extends ConsumerWidget {
     final isReviewer = user != null && (user.team == UserTeam.netherlands || user.isAdmin);
     final storagePath = p['pdfPath'] is String ? p['pdfPath'] as String : null;
 
+    // Submitters may withdraw their own proposal while it is still pending.
+    // Once reviewed it is part of the record, so it stays.
+    final canDelete = user != null &&
+        p['submittedBy'] == user.uid &&
+        ProposalStatus.isPending(p['status']);
+
     await showDialog<void>(
       context: context,
       builder: (ctx) {
@@ -167,7 +174,7 @@ class ProposalsListScreen extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('${AppLocalizations.of(context, 'status')}: ${p['status'] ?? ''}'),
+              Text('${AppLocalizations.of(context, 'status')}: ${ProposalStatus.label(context, p['status'])}'),
               const SizedBox(height: 8),
               Text('${AppLocalizations.of(context, 'submitted_by')}: ${p['submittedByName'] ?? ''}'),
               const SizedBox(height: 8),
@@ -196,17 +203,22 @@ class ProposalsListScreen extends ConsumerWidget {
               onPressed: () => Navigator.of(ctx).pop(),
               child: Text(AppLocalizations.of(context, 'close')),
             ),
+            if (canDelete)
+              _DeleteProposalButton(
+                proposalId: p['id'] as String,
+                storagePath: storagePath,
+              ),
             if (isReviewer) ...[
               _StatusButton(
                 proposalId: p['id'] as String,
-                status: 'مقبول',
+                status: ProposalStatus.accepted,
                 label: AppLocalizations.of(context, 'approve'),
                 color: Colors.green,
                 failureMessage: 'فشل الموافقة',
               ),
               _StatusButton(
                 proposalId: p['id'] as String,
-                status: 'مرفوض',
+                status: ProposalStatus.rejected,
                 label: AppLocalizations.of(context, 'reject'),
                 color: Colors.red,
                 failureMessage: 'فشل الرفض',
@@ -252,6 +264,71 @@ class _StatusButton extends ConsumerWidget {
         }
       },
       child: Text(label, style: TextStyle(color: color)),
+    );
+  }
+}
+
+/// Withdraws a pending proposal, with a confirmation step.
+class _DeleteProposalButton extends ConsumerWidget {
+  const _DeleteProposalButton({required this.proposalId, this.storagePath});
+
+  final String proposalId;
+  final String? storagePath;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return TextButton(
+      onPressed: () async {
+        final messenger = ScaffoldMessenger.of(context);
+        final navigator = Navigator.of(context);
+        final deletedMessage = AppLocalizations.of(context, 'proposal_deleted');
+
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (confirm) => AlertDialog(
+            content: Text(AppLocalizations.of(context, 'delete_proposal_confirm')),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(confirm).pop(false),
+                child: Text(AppLocalizations.of(context, 'cancel')),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(confirm).pop(true),
+                child: Text(
+                  AppLocalizations.of(context, 'delete'),
+                  style: TextStyle(color: scheme.error),
+                ),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true) return;
+
+        try {
+          await ref.read(firestoreAdminServiceProvider).deleteProposal(proposalId);
+
+          // Remove the file too, but only after the document is gone: an
+          // orphaned object is tidier than a proposal pointing at nothing.
+          if (storagePath != null) {
+            try {
+              await ref.read(fileStorageServiceProvider).deleteFile(storagePath!);
+            } on FileStorageException {
+              // Nothing references it now; leaving it behind is acceptable.
+            }
+          }
+
+          navigator.pop();
+          messenger.showSnackBar(SnackBar(content: Text(deletedMessage)));
+        } catch (e) {
+          messenger.showSnackBar(SnackBar(content: Text('$e')));
+        }
+      },
+      child: Text(
+        AppLocalizations.of(context, 'delete'),
+        style: TextStyle(color: scheme.error),
+      ),
     );
   }
 }

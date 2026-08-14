@@ -34,6 +34,14 @@ class FinanceScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 12),
+            if (!(ref.watch(currentUserStreamProvider).valueOrNull?.hasFinancialAccess ?? true))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  AppLocalizations.of(context, 'read_only_notice'),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
             Text(AppLocalizations.of(context, 'transactions'), style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Expanded(
@@ -42,16 +50,7 @@ class FinanceScreen extends ConsumerWidget {
                 error: (e, s) => Center(child: Text('Error: ${e.toString()}')),
                 data: (transactions) => ListView.builder(
                   itemCount: transactions.length,
-                  itemBuilder: (context, i) {
-                    final t = transactions[i];
-                    final isIncome = t['type'] == 'income';
-                    return ListTile(
-                      leading: CircleAvatar(backgroundColor: isIncome ? Colors.green : Colors.red, child: Icon(isIncome ? Icons.arrow_downward : Icons.arrow_upward, color: Colors.white)),
-                      title: Text(t['description'] ?? t['fileName'] ?? ''),
-                      subtitle: Text('${t['amount'] ?? 0} — ${t['date'] ?? ''}'),
-                      trailing: Text(isIncome ? '+${t['amount']}' : '-${t['amount']}'),
-                    );
-                  },
+                  itemBuilder: (context, i) => _TransactionTile(transaction: transactions[i]),
                 ),
               ),
             ),
@@ -237,5 +236,93 @@ class _AddTransactionDialogState extends ConsumerState<_AddTransactionDialog> {
         ),
       ],
     );
+  }
+}
+
+/// One financial movement. Only an admin may remove it — the rules enforce the
+/// same thing server-side, so hiding the action is a convenience, not the
+/// boundary.
+class _TransactionTile extends ConsumerWidget {
+  const _TransactionTile({required this.transaction});
+
+  final Map<String, dynamic> transaction;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isIncome = transaction['type'] == 'income';
+    final isAdmin = ref.watch(currentUserStreamProvider).valueOrNull?.isAdmin ?? false;
+    final scheme = Theme.of(context).colorScheme;
+
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundColor: isIncome ? Colors.green : Colors.red,
+        child: Icon(
+          isIncome ? Icons.arrow_downward : Icons.arrow_upward,
+          color: Colors.white,
+        ),
+      ),
+      title: Text(transaction['description'] as String? ??
+          transaction['fileName'] as String? ??
+          ''),
+      subtitle: Text('${transaction['amount'] ?? 0} — ${transaction['date'] ?? ''}'),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(isIncome ? '+${transaction['amount']}' : '-${transaction['amount']}'),
+          if (isAdmin)
+            IconButton(
+              icon: Icon(Icons.delete_outline, color: scheme.error),
+              tooltip: AppLocalizations.of(context, 'delete'),
+              onPressed: () => _confirmAndDelete(context, ref),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmAndDelete(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final deletedMessage = AppLocalizations.of(context, 'transaction_deleted');
+    final scheme = Theme.of(context).colorScheme;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (confirm) => AlertDialog(
+        content: Text(AppLocalizations.of(context, 'delete_transaction_confirm')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(confirm).pop(false),
+            child: Text(AppLocalizations.of(context, 'cancel')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(confirm).pop(true),
+            child: Text(
+              AppLocalizations.of(context, 'delete'),
+              style: TextStyle(color: scheme.error),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await ref
+          .read(firestoreAdminServiceProvider)
+          .deleteTransaction(transaction['id'] as String);
+
+      final filePath = transaction['filePath'];
+      if (filePath is String) {
+        try {
+          await ref.read(fileStorageServiceProvider).deleteFile(filePath);
+        } on FileStorageException {
+          // The ledger entry is gone; a leftover invoice file is acceptable.
+        }
+      }
+
+      messenger.showSnackBar(SnackBar(content: Text(deletedMessage)));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('$e')));
+    }
   }
 }

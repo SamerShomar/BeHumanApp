@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:be_human_app/core/languages/app_localizations.dart';
+import 'package:be_human_app/features/proposals/domain/proposal_status.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:be_human_app/features/admin/presentation/providers/admin_providers.dart';
 import 'package:be_human_app/features/about/data/website_scraper.dart';
@@ -170,7 +171,7 @@ class AdminDashboardScreen extends ConsumerWidget {
               final proposal = {
                 'id': id,
                 'title': titleCtrl.text,
-                'status': 'معلق',
+                'status': ProposalStatus.pending,
                 'date': DateTime.now().toIso8601String(),
                 'amount': amount,
                 'description': descCtrl.text,

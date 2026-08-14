@@ -15,6 +15,12 @@ class AppLocalizations {
   static final Map<String, Map<String, String>> _translations = {
     'en': {
       'app_title': 'Be Human Foundation',
+      'delete': 'Delete',
+      'delete_proposal_confirm': 'Delete this proposal? This cannot be undone.',
+      'proposal_deleted': 'Proposal deleted',
+      'transaction_deleted': 'Movement deleted',
+      'delete_transaction_confirm': 'Delete this financial movement? This cannot be undone.',
+      'read_only_notice': 'View only — you cannot add financial movements',
       'uploading': 'Uploading…',
       'change_photo': 'Change profile picture',
       'choose_from_gallery': 'Choose from gallery',
@@ -114,6 +120,12 @@ class AppLocalizations {
     },
     'ar': {
       'app_title': 'مؤسسة بي هيومان',
+      'delete': 'حذف',
+      'delete_proposal_confirm': 'حذف هذا المقترح؟ لا يمكن التراجع.',
+      'proposal_deleted': 'تم حذف المقترح',
+      'transaction_deleted': 'تم حذف الحركة',
+      'delete_transaction_confirm': 'حذف هذه الحركة المالية؟ لا يمكن التراجع.',
+      'read_only_notice': 'للاطّلاع فقط — لا يمكنك إضافة حركات مالية',
       'uploading': 'جارٍ الرفع…',
       'change_photo': 'تغيير صورة الملف الشخصي',
       'choose_from_gallery': 'اختيار من المعرض',
@@ -213,6 +225,12 @@ class AppLocalizations {
     },
     'nl': {
       'app_title': 'Be Human Foundation',
+      'delete': 'Verwijderen',
+      'delete_proposal_confirm': 'Dit voorstel verwijderen? Dit kan niet ongedaan worden gemaakt.',
+      'proposal_deleted': 'Voorstel verwijderd',
+      'transaction_deleted': 'Mutatie verwijderd',
+      'delete_transaction_confirm': 'Deze financiële mutatie verwijderen? Dit kan niet ongedaan worden gemaakt.',
+      'read_only_notice': 'Alleen lezen — u kunt geen mutaties toevoegen',
       'uploading': 'Uploaden…',
       'change_photo': 'Profielfoto wijzigen',
       'choose_from_gallery': 'Kies uit galerij',

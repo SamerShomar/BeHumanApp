@@ -85,6 +85,14 @@ class FirestoreAdminService {
     await _firestore.collection('proposals').doc(id).set({'status': status}, SetOptions(merge: true));
   }
 
+  Future<void> deleteProposal(String id) async {
+    await _firestore.collection('proposals').doc(id).delete();
+  }
+
+  Future<void> deleteTransaction(String id) async {
+    await _firestore.collection('transactions').doc(id).delete();
+  }
+
   Future<void> addTransaction(Map<String, dynamic> transaction) async {
     await _firestore.collection('transactions').doc(transaction['id'] as String).set(transaction);
   }

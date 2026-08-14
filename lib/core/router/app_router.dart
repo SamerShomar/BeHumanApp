@@ -178,7 +178,9 @@ class MainShell extends ConsumerWidget {
 
     switch (role) {
       case UserRole.member:
-        return [home, proposals, archive, settings];
+        // Finance is visible to members but read-only; the add button is
+        // gated on hasFinancialAccess and the rules enforce it server-side.
+        return [home, proposals, finance, archive, settings];
       case UserRole.manager:
         return [home, proposals, finance, archive, settings];
       case UserRole.admin:
