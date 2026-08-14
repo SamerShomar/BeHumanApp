@@ -94,6 +94,19 @@ service cloud.firestore {
       allow read, create, delete: if hasProfile();
     }
 
+    // Projects and the organisation's own description, shown on every user's
+    // home screen. Everyone reads them; only an admin publishes, whether by
+    // typing one in or by importing from the website.
+    match /projects/{projectId} {
+      allow read: if hasProfile();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /site_content/{documentId} {
+      allow read: if hasProfile();
+      allow write: if isAdmin();
+    }
+
     // Notifications are a shared feed: one document per event, read by
     // everyone whose role puts them in its audience. Who that is gets
     // decided in the app, not here — the audience field is data, and the

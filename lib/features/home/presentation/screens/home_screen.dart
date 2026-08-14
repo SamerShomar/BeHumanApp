@@ -13,6 +13,8 @@ import 'package:be_human_app/features/admin/presentation/providers/admin_provide
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:be_human_app/features/auth/presentation/widgets/user_avatar.dart';
 import 'package:be_human_app/features/notifications/presentation/widgets/notification_bell.dart';
+import 'package:be_human_app/features/projects/presentation/providers/project_providers.dart';
+import 'package:be_human_app/features/projects/presentation/widgets/project_card.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -22,6 +24,8 @@ class HomeScreen extends ConsumerWidget {
     final user = ref.watch(currentUserStreamProvider);
     final finances = ref.watch(financesProvider);
     final proposals = ref.watch(proposalsProvider);
+    final projects = ref.watch(projectsProvider);
+    final siteContent = ref.watch(siteContentProvider).valueOrNull ?? const {};
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -98,6 +102,80 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),
+
+              // What the organisation says about itself, straight from the
+              // website. Hidden entirely when nobody has imported it yet,
+              // rather than leaving an empty card on the screen.
+              if ((siteContent['mission'] ?? '').isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.xl, 0, AppSpacing.xl, AppSpacing.xl,
+                  ),
+                  child: GlassCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.public, size: 16, color: AppColors.brand),
+                            const SizedBox(width: 6),
+                            Text(
+                              AppLocalizations.of(context, 'about_org'),
+                              style: theme.textTheme.labelSmall
+                                  ?.copyWith(color: AppColors.brand),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          siteContent['mission']!,
+                          maxLines: 4,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                child: Text(
+                  AppLocalizations.of(context, 'latest_projects'),
+                  style: theme.textTheme.titleLarge,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              projects.when(
+                loading: () => const LoadingStateView(),
+                error: (error, _) => ErrorStateView(error: error),
+                data: (items) {
+                  if (items.isEmpty) {
+                    return EmptyStateView(
+                      icon: Icons.volunteer_activism_outlined,
+                      message: AppLocalizations.of(context, 'no_projects'),
+                    );
+                  }
+                  return Column(
+                    children: [
+                      for (final project in items.take(3))
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.xl, 0, AppSpacing.xl, AppSpacing.md,
+                          ),
+                          child: ProjectCard(
+                            title: project.title,
+                            description: project.description,
+                            beneficiaries: project.beneficiaries,
+                            location: project.location,
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+
+              const SizedBox(height: AppSpacing.lg),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                 child: Row(

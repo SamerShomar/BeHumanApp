@@ -27,6 +27,8 @@ import 'package:be_human_app/features/no_internet/presentation/screens/no_intern
 import 'package:be_human_app/features/notifications/domain/app_notification.dart';
 import 'package:be_human_app/features/notifications/presentation/providers/notification_providers.dart';
 import 'package:be_human_app/features/notifications/presentation/screens/notifications_screen.dart';
+import 'package:be_human_app/features/projects/domain/project.dart';
+import 'package:be_human_app/features/projects/presentation/providers/project_providers.dart';
 import 'package:be_human_app/features/proposals/presentation/screens/proposals_list_screen.dart';
 import 'package:be_human_app/features/settings/presentation/screens/settings_screen.dart';
 import 'package:be_human_app/features/splash/presentation/screens/splash_screen.dart';
@@ -163,6 +165,35 @@ void main() {
     ),
   ];
 
+  final projects = [
+    Project(
+      id: 'j1',
+      title: 'Sheikh Radwan water network',
+      description: 'Repairing the main line and installing six storage tanks so '
+          'households in the north have drinking water through the winter.',
+      date: DateTime(2026, 8, 9),
+      beneficiaries: 2400,
+      location: 'Gaza — Sheikh Radwan',
+    ),
+    Project(
+      id: 'j2',
+      title: 'Winter blankets distribution',
+      description: 'Thermal blankets and mattresses handed out to displaced '
+          'families across three shelters.',
+      date: DateTime(2026, 7, 22),
+      beneficiaries: 860,
+      location: 'Rafah',
+    ),
+    Project(
+      id: 'j3',
+      title: 'Psychosocial support for children',
+      description: 'Weekly sessions run with local counsellors.',
+      date: DateTime(2026, 6, 30),
+      beneficiaries: 310,
+      location: 'Khan Younis',
+    ),
+  ];
+
   final folders = [
     const ArchiveFolder(id: 'f1', name: 'Contracts', isSystem: false),
     const ArchiveFolder(id: 'f2', name: 'Partner reports', isSystem: false),
@@ -199,6 +230,12 @@ void main() {
         usersProvider.overrideWith((ref) => Stream.value([admin, gaza])),
         notificationFeedProvider.overrideWith((ref) => Stream.value(notifications)),
         archiveFoldersProvider.overrideWith((ref) => Stream.value(folders)),
+        projectsProvider.overrideWith((ref) => Stream.value(projects)),
+        siteContentProvider.overrideWith((ref) => Stream.value(const {
+              'mission': 'Be Human is a civil society organisation delivering '
+                  'emergency relief, development programmes and psychosocial '
+                  'support to affected communities.',
+            })),
       ],
       child: ScreenUtilInit(
         designSize: const Size(390, 844),

@@ -92,10 +92,36 @@ What it enforces:
 | `transactions` | any signed-in user with a profile | manager/admin only |
 | `archive_folders` | any signed-in user with a profile | any signed-in user with a profile (shared space, deliberately) |
 | `archive_documents` | any signed-in user with a profile | any signed-in user with a profile |
+| `projects` | any signed-in user with a profile | admin only |
+| `site_content` | any signed-in user with a profile | admin only |
 | `notifications` | any signed-in user with a profile | create stamped with the author's own uid; the only edit allowed is adding your own uid to `readBy`; delete by admin |
 
 Everything else is denied. A signed-in user with no `users` document can read
 nothing, which matches `AuthService.signIn` rejecting that case.
+
+## Website content on the home screen
+
+The home screen shows the organisation's latest projects — a title, a short
+description, how many people the project reached and where — plus the site's
+own description of itself.
+
+These live in the `projects` collection and a `site_content/about` document,
+**not** scraped on each launch. A phone with no connection still shows them,
+every user sees the same list rather than only whoever last pressed refresh,
+and a redesign of the website cannot empty the app's home screen.
+
+An admin fills them either way:
+
+- **By hand** — Admin dashboard → *Projects* → *Add project*. Always works.
+- **Import from website** — the cloud icon in the dashboard's toolbar pulls
+  the site's description and project list and writes both to Firestore.
+  Importing replaces only previously imported projects; anything typed in by
+  hand is left alone.
+
+> The import parser was written **without being able to open the site** — this
+> build environment blocks it — so its selectors are the shapes most sites use
+> rather than ones confirmed against this one. It returns nothing rather than
+> guessing, and says so, in which case add projects by hand.
 
 ## Notifications
 
