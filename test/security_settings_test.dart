@@ -10,6 +10,13 @@ void main() {
       expect(SecuritySettings.allowOfflineCache, isFalse);
     });
 
+    test('a session does not survive closing the app', () {
+      // Firebase Auth persists the signed-in user on disk. Leaving that on
+      // means reopening the app skips the login screen entirely, which defeats
+      // the offline-cache and idle-timeout protections for a seized device.
+      expect(SecuritySettings.requireLoginOnLaunch, isTrue);
+    });
+
     test('the inactivity timeout is short enough to matter', () {
       expect(SecuritySettings.inactivityTimeout, lessThanOrEqualTo(const Duration(minutes: 15)));
       // A timeout under a minute would sign users out mid-task.

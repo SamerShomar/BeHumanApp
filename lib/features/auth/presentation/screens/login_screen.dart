@@ -179,7 +179,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Image.asset(
-                              'assets/images/logo.PNG',
+                              'assets/images/logo.png',
                               width: 120.w,
                               height: 120.h,
                               fit: BoxFit.contain,

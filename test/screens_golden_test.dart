@@ -116,7 +116,7 @@ void main() {
       // from the captured frame.
       await tester.runAsync(() async {
         await precacheImage(
-          const AssetImage('assets/images/logo.PNG'),
+          const AssetImage('assets/images/logo.png'),
           tester.element(find.byType(SplashScreen)),
         );
       });

@@ -24,11 +24,27 @@ class SecuritySettings {
   /// How long the app may sit untouched before signing the user out.
   static const Duration inactivityTimeout = Duration(minutes: 10);
 
-  /// Applies settings that must be in place before Firestore is first used.
+  /// Whether a session must be re-entered every time the app is opened.
+  ///
+  /// Firebase Auth keeps the signed-in user on disk, so without this, reopening
+  /// the app lands straight on the dashboard with no password — which undoes
+  /// the protections above for a phone that is lost or seized, and makes the
+  /// idle timeout pointless since closing the app resets it.
+  ///
+  /// Set to `false` to keep users signed in between launches, accepting that
+  /// whoever holds an unlocked device holds the organisation's records.
+  static const bool requireLoginOnLaunch = true;
+
+  /// Applies settings that must be in place before Firestore or the router
+  /// first read their state.
   static Future<void> apply() async {
     FirebaseFirestore.instance.settings = const Settings(
       persistenceEnabled: allowOfflineCache,
     );
+
+    if (requireLoginOnLaunch) {
+      await FirebaseAuth.instance.signOut();
+    }
   }
 
   /// Signs out and drops any locally cached documents.

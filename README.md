@@ -33,6 +33,7 @@ The exposure that remains is the **device**. These measures address it:
 | --- | --- | --- |
 | Offline cache disabled | `SecuritySettings.allowOfflineCache` | Firestore's local cache is an unencrypted SQLite file; with it off, no proposal or transaction is written to disk |
 | Cache cleared on sign-out | `AuthService.signOut` | Nothing readable is left behind for the next holder of the device |
+| Login required on every launch | `SecuritySettings.requireLoginOnLaunch` | Firebase Auth keeps the session on disk; without this, reopening the app skips the login screen entirely |
 | Auto sign-out after 10 min idle | `InactivityGuard` | An unlocked phone with the app open is otherwise full access |
 | `FLAG_SECURE` | `MainActivity.kt` | Blocks screenshots and screen recording, and blanks the recents-switcher thumbnail |
 | 5-minute signed URLs | `FileStorageService` | A copied PDF link cannot outlive the session |
