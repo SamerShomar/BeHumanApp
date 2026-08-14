@@ -5,6 +5,8 @@ import 'package:be_human_app/main.dart';
 import 'package:be_human_app/core/router/app_router.dart';
 import 'package:be_human_app/features/admin/presentation/screens/admin_dashboard_screen.dart';
 import 'package:be_human_app/features/archive/presentation/screens/archive_screen.dart';
+import 'package:be_human_app/features/archive/domain/archive_models.dart';
+import 'package:be_human_app/features/archive/presentation/screens/archive_folder_screen.dart';
 import 'package:be_human_app/features/settings/presentation/screens/settings_screen.dart';
 import 'package:be_human_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:be_human_app/features/splash/presentation/screens/splash_screen.dart';
@@ -23,6 +25,12 @@ void main() {
     expect(const BeHumanApp(), isNotNull);
     expect(const AdminDashboardScreen(), isNotNull);
     expect(const ArchiveScreen(), isNotNull);
+    expect(
+      const ArchiveFolderScreen(
+        folder: ArchiveFolder(id: ArchiveFolder.proposalsId, name: 'p', isSystem: true),
+      ),
+      isNotNull,
+    );
     expect(const SettingsScreen(), isNotNull);
     expect(const LoginScreen(), isNotNull);
     expect(const SplashScreen(), isNotNull);

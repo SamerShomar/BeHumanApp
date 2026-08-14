@@ -82,6 +82,18 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // The archive is shared space rather than per-user: any signed-in member
+    // may create or remove a folder and its documents, including ones
+    // another member added. Scope was set this way deliberately, not an
+    // oversight — tighten to an owner check if that changes.
+    match /archive_folders/{folderId} {
+      allow read, create, delete: if hasProfile();
+    }
+
+    match /archive_documents/{documentId} {
+      allow read, create, delete: if hasProfile();
+    }
+
     // Anything not matched above is denied. Never replace this with a
     // blanket allow — that is what "test mode" does, and it exposes every
     // proposal and financial record to the public internet.

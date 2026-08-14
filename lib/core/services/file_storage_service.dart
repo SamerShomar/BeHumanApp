@@ -66,6 +66,32 @@ class FileStorageService {
     return _upload('invoices/$transactionId.pdf', bytes);
   }
 
+  /// Uploads a file into a user-created archive folder.
+  Future<String> uploadArchiveDocument({
+    required String folderId,
+    required String documentId,
+    required List<int> bytes,
+  }) {
+    return _upload(
+      'archive/$folderId/$documentId',
+      Uint8List.fromList(bytes),
+    );
+  }
+
+  /// Fetches a stored file's bytes directly, for saving or sharing rather
+  /// than viewing. Separate from [createSignedUrl]: a signed URL is for
+  /// something that renders it (the PDF viewer); this is for handing raw
+  /// bytes to the share sheet.
+  Future<Uint8List> downloadBytes(String path) async {
+    try {
+      return await _requireClient.storage.from(_bucket).download(path).timeout(_timeout);
+    } on TimeoutException {
+      throw const FileStorageException('انتهت مهلة تحميل الملف، تحقق من اتصالك');
+    } on StorageException catch (e) {
+      throw FileStorageException(_describe(e));
+    }
+  }
+
   /// Uploads a profile picture and returns its object path.
   ///
   /// Keyed by uid so a new picture replaces the old one instead of leaving the
