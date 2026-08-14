@@ -1,0 +1,47 @@
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:be_human_app/core/services/push_service.dart';
+import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
+import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
+
+/// Records this device against whoever is signed in, so push notifications
+/// know where to go.
+///
+/// It wraps the whole app rather than living on a screen: registration has to
+/// happen once per session no matter where the user lands after signing in,
+/// and it must survive navigation.
+class PushRegistrar extends ConsumerStatefulWidget {
+  const PushRegistrar({required this.child, super.key});
+
+  final Widget child;
+
+  @override
+  ConsumerState<PushRegistrar> createState() => _PushRegistrarState();
+}
+
+class _PushRegistrarState extends ConsumerState<PushRegistrar> {
+  /// The uid already registered, so a profile stream that re-emits — which it
+  /// does on every avatar or role change — does not re-request permission.
+  String? _registeredUid;
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<AsyncValue<AppUser?>>(currentUserStreamProvider, (_, next) {
+      final uid = next.valueOrNull?.uid;
+      if (uid == null || uid == _registeredUid) return;
+
+      _registeredUid = uid;
+      // Reading the provider is inside the guard too: on a build with no
+      // Firebase messaging available it throws on construction, and a missing
+      // push channel must never take the app down with it.
+      try {
+        ref.read(pushServiceProvider).register(uid);
+      } catch (_) {
+        // In-app notifications still work; only closed-app alerts are lost.
+      }
+    });
+
+    return widget.child;
+  }
+}

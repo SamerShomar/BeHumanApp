@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:be_human_app/core/config/app_config.dart';
 import 'package:be_human_app/core/security/inactivity_guard.dart';
+import 'package:be_human_app/core/services/push_registrar.dart';
 import 'package:be_human_app/core/security/security_settings.dart';
 import 'package:be_human_app/core/router/app_router.dart';
 import 'package:be_human_app/core/theme/app_theme.dart';
@@ -68,7 +69,9 @@ class BeHumanApp extends ConsumerWidget {
             GlobalCupertinoLocalizations.delegate,
           ],
           routerConfig: router,
-          builder: (context, child) => InactivityGuard(child: child ?? const SizedBox.shrink()),
+          builder: (context, child) => PushRegistrar(
+            child: InactivityGuard(child: child ?? const SizedBox.shrink()),
+          ),
           localeResolutionCallback: (locale, supportedLocales) {
             if (locale == null) return supportedLocales.first;
             for (final supportedLocale in supportedLocales) {

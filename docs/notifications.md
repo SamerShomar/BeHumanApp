@@ -32,33 +32,94 @@ on a Dutch reviewer's phone.
 as the rest of the app. Events published while a phone has no connection are
 queued and sent when it reconnects.
 
-## What it does not do, and why
+## Alerts while the app is closed
 
-An alert **does not arrive when the app is closed**. That is the one thing this
-design cannot do, and it is not an oversight.
+This part is **built but not yet switched on**: it needs one Edge Function
+deployed and one secret set, both of which have to be done from a Supabase
+account. Until then everything above still works; the app tries to deliver,
+the call fails, and nothing else changes.
 
-A real push notification has to be sent by a server. The credentials that
-authorise sending (an FCM service-account key) cannot ship inside the app —
-anyone who unpacked the APK could then send notifications to every user. The
-standard place to put that server is **Cloud Functions for Firebase, which
-requires the paid Blaze plan** — the same limit that pushed file storage over
-to Supabase.
+### Why it cannot all live in the app
 
-## Adding real background push later
+Sending through FCM requires a Firebase **service-account key**. A key shipped
+inside an APK can be extracted by anyone who downloads the app, and they could
+then push anything to every user of the platform. So the key lives on a server.
+The usual server is Cloud Functions for Firebase, which needs the paid Blaze
+plan — the same limit that moved file storage to Supabase — so this runs on a
+**Supabase Edge Function** on the free tier instead.
 
-Everything below is optional and none of it changes the behaviour described
-above; it adds delivery while the app is closed.
+### What is already in the repository
 
-1. **Sender.** A Supabase Edge Function (free tier) holding the FCM
-   service-account key, triggered by the app right after a successful write —
-   the same two places that call `NotificationService` today.
-2. **Receiver.** Add `firebase_messaging` to the app, request the notification
-   permission (required on Android 13+), and store each device's FCM token on
-   the user's profile so the function knows where to send.
-3. **Android** works with the Firebase config already in the repo.
-4. **iOS** additionally needs a paid Apple Developer account, an APNs key
-   uploaded to Firebase, and `ios/Runner/GoogleService-Info.plist`, which the
-   repo does not have yet.
+| Piece | Where |
+| --- | --- |
+| The sender | `supabase/functions/send-notification/index.ts` |
+| Device registration | `lib/core/services/push_service.dart` — stores each device's FCM token on the user's own profile |
+| Hooked into sign-in / sign-out | `lib/core/services/push_registrar.dart`, settings screen |
+| The call that triggers a send | `NotificationService._deliver` |
+| Endpoint URL | derived from `SUPABASE_URL`, already in `env.json` — no new app config |
+
+The app sends **only the notification's id**. The function reads the text from
+Firestore itself, so a caller cannot dictate what an alert says, and it refuses
+events older than five minutes so the endpoint cannot be used to replay
+notifications at the team.
+
+Each user's chosen language is written to their profile (`locale`) when they
+change it in settings, because the server composing the alert has no other way
+to know which language to use.
+
+### Turning it on
+
+Needs a computer, not a phone.
+
+1. **Get the service-account key.** Firebase console → ⚙ Project settings →
+   *Service accounts* → **Generate new private key**. A `.json` file downloads.
+   Treat it like a password; never commit it.
+
+2. **Install the Supabase CLI** and sign in:
+
+   ```bash
+   npm install -g supabase
+   supabase login
+   ```
+
+3. **Link the project** (the ref is in the Supabase dashboard URL, and under
+   Project Settings → General):
+
+   ```bash
+   supabase link --project-ref <your-project-ref>
+   ```
+
+4. **Store the key as a secret** — this is what keeps it off every phone:
+
+   ```bash
+   supabase secrets set FIREBASE_SERVICE_ACCOUNT="$(cat /path/to/serviceAccount.json)"
+   ```
+
+   On Windows PowerShell:
+
+   ```powershell
+   supabase secrets set FIREBASE_SERVICE_ACCOUNT="$(Get-Content -Raw C:\path\to\serviceAccount.json)"
+   ```
+
+5. **Deploy:**
+
+   ```bash
+   supabase functions deploy send-notification
+   ```
+
+6. **Test.** Run the app on two phones with different accounts, submit a
+   proposal from one, and close the app on the other. Logs are under
+   *Edge Functions → send-notification → Logs* in the Supabase dashboard; a
+   successful call returns `{"recipients":N,"delivered":N}`.
+
+### Platform notes
+
+- **Android** works with the `google-services.json` already in the repo. The
+  app asks for notification permission on first sign-in, which Android 13 and
+  newer require.
+- **iOS** additionally needs a paid Apple Developer account, an APNs key
+  uploaded to Firebase, and `ios/Runner/GoogleService-Info.plist`, which the
+  repo does not have yet. Until then iOS does not build at all.
 
 ## Firestore rules
 

@@ -20,6 +20,13 @@ class AppConfig {
     defaultValue: 'proposals',
   );
 
+  /// The Supabase Edge Function that sends push notifications, which is what
+  /// makes an alert arrive while the app is closed. It is deployed separately
+  /// (see docs/notifications.md); until it exists the app still notifies
+  /// in-app, and the delivery call simply fails and is ignored.
+  static String get pushFunctionUrl =>
+      supabaseUrl.isEmpty ? '' : '$supabaseUrl/functions/v1/send-notification';
+
   /// Whether file storage was configured for this build. When false the app
   /// still runs, but uploading is refused with an explanatory message instead
   /// of throwing somewhere deeper.

@@ -1,6 +1,10 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
+import 'package:be_human_app/core/config/app_config.dart';
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:be_human_app/features/notifications/domain/app_notification.dart';
@@ -108,6 +112,35 @@ class NotificationService {
       await _collection.doc(notification.id).set(notification.toJson());
     } catch (_) {
       // See the note on proposalSubmitted.
+      return;
+    }
+    await _deliver(notification.id);
+  }
+
+  /// Asks the Edge Function to push the notification to phones that do not
+  /// have the app open.
+  ///
+  /// Only the id is sent: the function reads the real document itself, so a
+  /// caller cannot dictate the text of an alert. Nothing here is required for
+  /// the feature to work — if the function is not deployed, or the phone is
+  /// offline, the in-app feed and badge are unaffected.
+  Future<void> _deliver(String notificationId) async {
+    final url = AppConfig.pushFunctionUrl;
+    if (url.isEmpty) return;
+
+    try {
+      await http
+          .post(
+            Uri.parse(url),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ${AppConfig.supabaseAnonKey}',
+            },
+            body: jsonEncode({'notificationId': notificationId}),
+          )
+          .timeout(const Duration(seconds: 10));
+    } catch (_) {
+      // Best-effort by design; see above.
     }
   }
 

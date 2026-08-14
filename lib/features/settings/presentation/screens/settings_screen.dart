@@ -6,6 +6,7 @@ import 'package:be_human_app/core/languages/app_localizations.dart';
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:be_human_app/core/providers/theme_provider.dart';
+import 'package:be_human_app/core/services/push_service.dart';
 import 'package:be_human_app/features/auth/presentation/widgets/avatar_picker.dart';
 import 'package:be_human_app/features/notifications/presentation/widgets/notification_bell.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -86,8 +87,15 @@ class SettingsScreen extends ConsumerWidget {
                     DropdownMenuItem(value: const Locale('nl'), child: Text(AppLocalizations.of(context, 'dutch'))),
                   ],
                   onChanged: (locale) {
-                    if (locale != null) {
-                      ref.read(localeProvider.notifier).setLocale(locale);
+                    if (locale == null) return;
+                    ref.read(localeProvider.notifier).setLocale(locale);
+
+                    // Recorded on the profile too, so a push notification
+                    // composed on the server arrives in this language.
+                    if (user != null) {
+                      ref
+                          .read(profileServiceProvider)
+                          .updateLocale(user.uid, locale.languageCode);
                     }
                   },
                 ),
@@ -99,6 +107,16 @@ class SettingsScreen extends ConsumerWidget {
                 final messenger = ScaffoldMessenger.of(context);
                 final router = GoRouter.of(context);
                 try {
+                  // Before signing out, while the rules still allow writing
+                  // to this profile: otherwise the phone keeps receiving the
+                  // previous user's notifications.
+                  if (user != null) {
+                    try {
+                      await ref.read(pushServiceProvider).unregister(user.uid);
+                    } catch (_) {
+                      // Never block signing out over this.
+                    }
+                  }
                   await ref.read(authServiceProvider).signOut();
                   // The router listens to the auth stream, but navigating
                   // explicitly avoids leaving a stale route on screen.

@@ -103,10 +103,27 @@ Submitting a proposal notifies the reviewers; adding a financial movement
 notifies the whole team. Both show up as a bell with an unread count, a feed at
 `/notifications`, and a pop-up while the app is open.
 
-Alerts do **not** arrive when the app is closed — that needs a server to send
-them, and the standard one (Cloud Functions) is on the paid Blaze plan. See
-[docs/notifications.md](docs/notifications.md) for what works today and what a
-free background-push setup would take.
+Alerts while the app is **closed** are built too — `firebase_messaging` on the
+device plus a Supabase Edge Function that holds the FCM key — but they stay off
+until that function is deployed and its secret is set, which needs a Supabase
+account. Until then the app degrades quietly to in-app notifications only.
+Steps: [docs/notifications.md](docs/notifications.md).
+
+## Release builds (Android)
+
+`flutter build apk --release` signs with the **debug** key unless
+`android/key.properties` exists, and a debug-signed build cannot go on Google
+Play. To sign properly, create a keystore once and point at it:
+
+```bash
+keytool -genkey -v -keystore ~/be-human-upload.jks \
+  -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+cp android/key.properties.example android/key.properties   # then fill it in
+```
+
+`key.properties` and `*.jks` are gitignored. **Back both up somewhere safe** —
+an app on Google Play can never change its signing key, so losing the keystore
+means never being able to publish an update again.
 
 ## File storage (proposal PDFs)
 

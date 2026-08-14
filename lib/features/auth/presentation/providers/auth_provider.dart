@@ -162,6 +162,18 @@ class ProfileService {
       SetOptions(merge: true),
     );
   }
+
+  /// Remembers which language this user reads.
+  ///
+  /// The app knows the chosen locale on its own, but a push notification is
+  /// composed on a server that has no way to ask — without this, an alert
+  /// arriving on a closed phone would be in one fixed language for everyone.
+  Future<void> updateLocale(String uid, String languageCode) async {
+    await _firestore.collection('users').doc(uid).set(
+      {'locale': languageCode},
+      SetOptions(merge: true),
+    );
+  }
 }
 
 final profileServiceProvider = Provider<ProfileService>(

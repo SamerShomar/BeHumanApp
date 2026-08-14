@@ -49,3 +49,9 @@ app.*.map.json
 env.json
 run.ps1
 run.sh
+
+# Android release signing. The keystore and its passwords must never be
+# committed — anyone holding them can publish an update as this app.
+android/key.properties
+*.jks
+*.keystore
