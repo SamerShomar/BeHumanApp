@@ -43,7 +43,7 @@ void main() {
 
     test('deleting throws a FileStorageException', () {
       expect(
-        () => service.deleteProposalPdf('p1.pdf'),
+        () => service.deleteFile('p1.pdf'),
         throwsA(isA<FileStorageException>()),
       );
     });

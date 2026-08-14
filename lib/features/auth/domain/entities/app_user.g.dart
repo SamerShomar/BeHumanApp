@@ -13,7 +13,7 @@ _$AppUserImpl _$$AppUserImplFromJson(Map<String, dynamic> json) =>
       name: json['name'] as String,
       role: $enumDecode(_$UserRoleEnumMap, json['role']),
       team: $enumDecode(_$UserTeamEnumMap, json['team']),
-      photoUrl: json['photoUrl'] as String?,
+      photoPath: json['photoPath'] as String?,
       isActive: json['isActive'] as bool? ?? true,
       createdAt: json['createdAt'] == null
           ? null
@@ -27,7 +27,7 @@ Map<String, dynamic> _$$AppUserImplToJson(_$AppUserImpl instance) =>
       'name': instance.name,
       'role': _$UserRoleEnumMap[instance.role]!,
       'team': _$UserTeamEnumMap[instance.team]!,
-      'photoUrl': instance.photoUrl,
+      'photoPath': instance.photoPath,
       'isActive': instance.isActive,
       'createdAt': instance.createdAt?.toIso8601String(),
     };

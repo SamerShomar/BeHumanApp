@@ -44,13 +44,15 @@ service cloud.firestore {
       allow read: if hasProfile();
 
       // Only an admin may create profiles or change a role. A user may edit
-      // their own document but must not promote themselves, so the role and
-      // team fields have to stay identical to what is already stored.
+      // their own document — their profile picture, for instance — but must
+      // not promote themselves, so role and team have to stay identical to
+      // what is already stored.
       allow create, delete: if isAdmin();
       allow update: if isAdmin()
         || (request.auth.uid == userId
             && request.resource.data.role == resource.data.role
-            && request.resource.data.team == resource.data.team);
+            && request.resource.data.team == resource.data.team
+            && request.resource.data.uid == resource.data.uid);
     }
 
     match /proposals/{proposalId} {

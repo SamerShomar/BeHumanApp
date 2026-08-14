@@ -59,13 +59,29 @@ class FileStorageService {
     return _upload('invoices/$transactionId.pdf', bytes);
   }
 
-  Future<String> _upload(String path, Uint8List bytes) async {
+  /// Uploads a profile picture and returns its object path.
+  ///
+  /// Keyed by uid so a new picture replaces the old one instead of leaving the
+  /// previous file orphaned in the bucket.
+  Future<String> uploadAvatar({
+    required String uid,
+    required Uint8List bytes,
+    required String contentType,
+  }) {
+    return _upload('avatars/$uid', bytes, contentType: contentType);
+  }
+
+  Future<String> _upload(
+    String path,
+    Uint8List bytes, {
+    String contentType = 'application/pdf',
+  }) async {
     try {
       await _requireClient.storage.from(_bucket).uploadBinary(
             path,
             bytes,
-            fileOptions: const FileOptions(
-              contentType: 'application/pdf',
+            fileOptions: FileOptions(
+              contentType: contentType,
               upsert: true,
             ),
           );
@@ -93,7 +109,8 @@ class FileStorageService {
     }
   }
 
-  Future<void> deleteProposalPdf(String path) async {
+  /// Removes a stored object, whatever kind it is.
+  Future<void> deleteFile(String path) async {
     try {
       await _requireClient.storage.from(_bucket).remove([path]);
     } on StorageException catch (e) {

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:be_human_app/core/languages/app_localizations.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:be_human_app/core/providers/theme_provider.dart';
+import 'package:be_human_app/features/auth/presentation/widgets/avatar_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -27,16 +28,27 @@ class SettingsScreen extends ConsumerWidget {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.r)),
               child: Padding(
                 padding: EdgeInsets.all(16.w),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(user?.name ?? AppLocalizations.of(context, 'user_default'), style: theme.textTheme.titleLarge),
-                    SizedBox(height: 6.h),
-                    Text(user?.email ?? '', style: theme.textTheme.bodyMedium),
-                    SizedBox(height: 6.h),
-                    Text('${AppLocalizations.of(context, 'team_label')}: ${user?.team.name ?? ''}', style: theme.textTheme.bodyMedium),
-                    SizedBox(height: 6.h),
-                    Text('${AppLocalizations.of(context, 'role_label')}: ${user?.role.name ?? ''}', style: theme.textTheme.bodyMedium),
+                    if (user != null) ...[
+                      AvatarPicker(user: user, radius: 36.r),
+                      SizedBox(width: 16.w),
+                    ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(user?.name ?? AppLocalizations.of(context, 'user_default'), style: theme.textTheme.titleLarge),
+                          SizedBox(height: 6.h),
+                          Text(user?.email ?? '', style: theme.textTheme.bodyMedium),
+                          SizedBox(height: 6.h),
+                          Text('${AppLocalizations.of(context, 'team_label')}: ${user?.team.name ?? ''}', style: theme.textTheme.bodyMedium),
+                          SizedBox(height: 6.h),
+                          Text('${AppLocalizations.of(context, 'role_label')}: ${user?.role.name ?? ''}', style: theme.textTheme.bodyMedium),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),

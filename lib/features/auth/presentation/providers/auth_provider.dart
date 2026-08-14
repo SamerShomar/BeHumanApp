@@ -94,3 +94,26 @@ class AuthService {
 }
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService(ref.watch(firebaseAuthProvider), ref.watch(firebaseFirestoreProvider)));
+
+/// Edits a user makes to their own profile.
+///
+/// Kept apart from [AuthService], which deals with credentials. Firestore rules
+/// let a user write their own document as long as `role` and `team` are
+/// untouched, so these updates are merges of single fields.
+class ProfileService {
+  ProfileService(this._firestore);
+
+  final FirebaseFirestore _firestore;
+
+  /// Points the profile at a stored avatar, or clears it when [path] is null.
+  Future<void> updatePhotoPath(String uid, String? path) async {
+    await _firestore.collection('users').doc(uid).set(
+      {'photoPath': path},
+      SetOptions(merge: true),
+    );
+  }
+}
+
+final profileServiceProvider = Provider<ProfileService>(
+  (ref) => ProfileService(ref.watch(firebaseFirestoreProvider)),
+);

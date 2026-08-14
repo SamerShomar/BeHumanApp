@@ -151,6 +151,11 @@ collection keyed by the user's UID:
 }
 ```
 
+`photoPath` is added by the app when a user sets a profile picture and holds
+the avatar's object path (`avatars/<uid>`), not a URL — the bucket is private,
+so a viewable link is generated on demand and expires. Avatars live in the same
+bucket as the documents, so the policies above already cover them.
+
 `role` is one of `member`, `manager`, `admin`, and `team` is one of `gaza`,
 `netherlands` — the bare enum names the generated serializer reads and writes. A user without a
 `users` document cannot sign in — `AuthService.signIn` rejects the login.

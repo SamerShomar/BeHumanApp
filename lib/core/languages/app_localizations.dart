@@ -15,6 +15,12 @@ class AppLocalizations {
   static final Map<String, Map<String, String>> _translations = {
     'en': {
       'app_title': 'Be Human Foundation',
+      'change_photo': 'Change profile picture',
+      'choose_from_gallery': 'Choose from gallery',
+      'take_photo': 'Take a photo',
+      'remove_photo': 'Remove picture',
+      'photo_updated': 'Profile picture updated',
+      'photo_removed': 'Profile picture removed',
       'no_internet_title': 'No internet connection',
       'no_internet_body': 'Check your network and try again. The app reconnects on its own once you are back online.',
       'retry': 'Try again',
@@ -107,6 +113,12 @@ class AppLocalizations {
     },
     'ar': {
       'app_title': 'مؤسسة بي هيومان',
+      'change_photo': 'تغيير صورة الملف الشخصي',
+      'choose_from_gallery': 'اختيار من المعرض',
+      'take_photo': 'التقاط صورة',
+      'remove_photo': 'إزالة الصورة',
+      'photo_updated': 'تم تحديث الصورة',
+      'photo_removed': 'تمت إزالة الصورة',
       'no_internet_title': 'لا يوجد اتصال بالإنترنت',
       'no_internet_body': 'تحقق من شبكتك وحاول مرة أخرى. سيتابع التطبيق تلقائياً بمجرد عودة الاتصال.',
       'retry': 'إعادة المحاولة',
@@ -199,6 +211,12 @@ class AppLocalizations {
     },
     'nl': {
       'app_title': 'Be Human Foundation',
+      'change_photo': 'Profielfoto wijzigen',
+      'choose_from_gallery': 'Kies uit galerij',
+      'take_photo': 'Foto maken',
+      'remove_photo': 'Foto verwijderen',
+      'photo_updated': 'Profielfoto bijgewerkt',
+      'photo_removed': 'Profielfoto verwijderd',
       'no_internet_title': 'Geen internetverbinding',
       'no_internet_body': 'Controleer uw netwerk en probeer opnieuw. De app gaat vanzelf verder zodra u weer online bent.',
       'retry': 'Opnieuw proberen',

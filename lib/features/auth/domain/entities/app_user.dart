@@ -22,7 +22,10 @@ class AppUser with _$AppUser {
     required String name,
     required UserRole role,
     required UserTeam team,
-    String? photoUrl,
+
+    /// Object path of the avatar inside the storage bucket, not a URL — the
+    /// bucket is private, so a viewable link is minted on demand and expires.
+    String? photoPath,
     @Default(true) bool isActive,
     DateTime? createdAt,
   }) = _AppUser;
