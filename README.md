@@ -90,9 +90,23 @@ What it enforces:
 | `users` | any signed-in user with a profile | admin only, except a user editing their own profile without changing `role` or `team` |
 | `proposals` | any signed-in user with a profile | create by the submitter (stamped with their own uid); status changes by manager/admin |
 | `transactions` | any signed-in user with a profile | manager/admin only |
+| `archive_folders` | any signed-in user with a profile | any signed-in user with a profile (shared space, deliberately) |
+| `archive_documents` | any signed-in user with a profile | any signed-in user with a profile |
+| `notifications` | any signed-in user with a profile | create stamped with the author's own uid; the only edit allowed is adding your own uid to `readBy`; delete by admin |
 
 Everything else is denied. A signed-in user with no `users` document can read
 nothing, which matches `AuthService.signIn` rejecting that case.
+
+## Notifications
+
+Submitting a proposal notifies the reviewers; adding a financial movement
+notifies the whole team. Both show up as a bell with an unread count, a feed at
+`/notifications`, and a pop-up while the app is open.
+
+Alerts do **not** arrive when the app is closed — that needs a server to send
+them, and the standard one (Cloud Functions) is on the paid Blaze plan. See
+[docs/notifications.md](docs/notifications.md) for what works today and what a
+free background-push setup would take.
 
 ## File storage (proposal PDFs)
 

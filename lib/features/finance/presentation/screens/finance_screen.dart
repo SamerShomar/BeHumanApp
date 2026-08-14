@@ -13,6 +13,8 @@ import 'package:be_human_app/core/services/file_storage_service.dart';
 import 'package:be_human_app/features/admin/presentation/providers/admin_providers.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
+import 'package:be_human_app/features/notifications/presentation/providers/notification_providers.dart';
+import 'package:be_human_app/features/notifications/presentation/widgets/notification_bell.dart';
 
 class FinanceScreen extends ConsumerStatefulWidget {
   const FinanceScreen({super.key});
@@ -61,6 +63,7 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
             tooltip: AppLocalizations.of(context, 'export_statement'),
             onPressed: _isExporting ? null : () => _export(visible),
           ),
+          const NotificationBell(),
         ],
       ),
       body: Padding(
@@ -284,6 +287,16 @@ class _AddTransactionDialogState extends ConsumerState<_AddTransactionDialog> {
         if (invoicePath != null) 'filePath': invoicePath,
         if (_invoice != null) 'fileName': _invoice!.name,
       });
+
+      final actor = ref.read(currentUserStreamProvider).valueOrNull;
+      if (actor != null) {
+        await ref.read(notificationServiceProvider).transactionAdded(
+              actor: actor,
+              transactionId: id,
+              type: _type,
+              amount: amount,
+            );
+      }
 
       navigator.pop();
       messenger.showSnackBar(

@@ -7,6 +7,7 @@ import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:be_human_app/core/providers/theme_provider.dart';
 import 'package:be_human_app/features/auth/presentation/widgets/avatar_picker.dart';
+import 'package:be_human_app/features/notifications/presentation/widgets/notification_bell.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -19,7 +20,10 @@ class SettingsScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(AppLocalizations.of(context, 'settings_title'))),
+      appBar: AppBar(
+        title: Text(AppLocalizations.of(context, 'settings_title')),
+        actions: const [NotificationBell()],
+      ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16.w),
         child: Column(

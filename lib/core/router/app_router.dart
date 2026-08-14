@@ -13,6 +13,8 @@ import 'package:be_human_app/features/settings/presentation/screens/settings_scr
 import 'package:be_human_app/features/splash/presentation/screens/splash_screen.dart';
 import 'package:be_human_app/features/no_internet/presentation/screens/no_internet_screen.dart';
 import 'package:be_human_app/features/archive/presentation/screens/archive_screen.dart';
+import 'package:be_human_app/features/notifications/presentation/screens/notifications_screen.dart';
+import 'package:be_human_app/features/notifications/presentation/widgets/notification_toaster.dart';
 import 'package:be_human_app/features/admin/presentation/screens/admin_dashboard_screen.dart';
 import 'package:be_human_app/core/languages/app_localizations.dart';
 import 'package:be_human_app/core/providers/auth_state_provider.dart';
@@ -112,6 +114,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/settings',
             name: 'settings',
             builder: (context, state) => const SettingsScreen(),
+          ),
+          GoRoute(
+            path: '/notifications',
+            name: 'notifications',
+            builder: (context, state) => const NotificationsScreen(),
           ),
         ],
       ),
@@ -220,7 +227,9 @@ class MainShell extends ConsumerWidget {
         : Colors.white.withOpacity(0.92);
 
     return Scaffold(
-      body: child,
+      // Wrapping the shell rather than each screen means an incoming
+      // notification is announced wherever the user happens to be.
+      body: NotificationToaster(child: child),
       backgroundColor: scaffoldBackgroundColor,
       bottomNavigationBar: items.isEmpty
           ? null

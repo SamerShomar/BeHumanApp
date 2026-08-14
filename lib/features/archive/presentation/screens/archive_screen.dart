@@ -5,6 +5,7 @@ import 'package:be_human_app/core/languages/app_localizations.dart';
 import 'package:be_human_app/features/archive/domain/archive_models.dart';
 import 'package:be_human_app/features/archive/presentation/providers/archive_providers.dart';
 import 'package:be_human_app/features/archive/presentation/screens/archive_folder_screen.dart';
+import 'package:be_human_app/features/notifications/presentation/widgets/notification_bell.dart';
 
 /// Archive landing screen: a folder per topic.
 ///
@@ -34,7 +35,10 @@ class ArchiveScreen extends ConsumerWidget {
     ];
 
     return Scaffold(
-      appBar: AppBar(title: Text(AppLocalizations.of(context, 'archive'))),
+      appBar: AppBar(
+        title: Text(AppLocalizations.of(context, 'archive')),
+        actions: const [NotificationBell()],
+      ),
       body: userFolders.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('${AppLocalizations.of(context, 'error_generic')}: $e')),

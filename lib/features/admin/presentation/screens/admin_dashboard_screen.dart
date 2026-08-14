@@ -7,6 +7,8 @@ import 'package:be_human_app/features/admin/presentation/providers/admin_provide
 import 'package:be_human_app/features/about/data/website_scraper.dart';
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 import 'package:be_human_app/features/admin/presentation/providers/about_provider.dart';
+import 'package:be_human_app/features/notifications/presentation/providers/notification_providers.dart';
+import 'package:be_human_app/features/notifications/presentation/widgets/notification_bell.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
@@ -53,6 +55,7 @@ class AdminDashboardScreen extends ConsumerWidget {
               child: Text(AppLocalizations.of(context, 'pull_website_action')),
             ),
           ),
+          const NotificationBell(),
         ],
       ),
       body: SingleChildScrollView(
@@ -86,7 +89,7 @@ class AdminDashboardScreen extends ConsumerWidget {
               children: [
                 Text(AppLocalizations.of(context, 'proposals'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ElevatedButton(
-                  onPressed: () => _showAddProposalDialog(context, ref),
+                  onPressed: () => _showAddProposalDialog(context, ref, user),
                   child: Text(AppLocalizations.of(context, 'add_proposal_new')),
                 ),
               ],
@@ -106,7 +109,7 @@ class AdminDashboardScreen extends ConsumerWidget {
               children: [
                 Text(AppLocalizations.of(context, 'financial'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ElevatedButton(
-                  onPressed: () => _showAddTransactionDialog(context, ref),
+                  onPressed: () => _showAddTransactionDialog(context, ref, user),
                   child: Text(AppLocalizations.of(context, 'add_movement')),
                 ),
               ],
@@ -150,7 +153,7 @@ class AdminDashboardScreen extends ConsumerWidget {
     );
   }
 
-  void _showAddProposalDialog(BuildContext context, WidgetRef ref) {
+  void _showAddProposalDialog(BuildContext context, WidgetRef ref, AppUser actor) {
     final titleCtrl = TextEditingController();
     final descCtrl = TextEditingController();
     final amountCtrl = TextEditingController();
@@ -180,11 +183,19 @@ class AdminDashboardScreen extends ConsumerWidget {
                 'date': DateTime.now().toIso8601String(),
                 'amount': amount,
                 'description': descCtrl.text,
+                // The rules require a proposal to carry its author's uid.
+                'submittedBy': actor.uid,
+                'submittedByName': actor.name,
               };
 
               try {
                 final adminService = ref.read(firestoreAdminServiceProvider);
                 await adminService.addProposal(proposal);
+                await ref.read(notificationServiceProvider).proposalSubmitted(
+                      actor: actor,
+                      proposalId: id,
+                      title: titleCtrl.text,
+                    );
                 Navigator.of(ctx).pop();
                 ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context, 'proposal_added'))));
               } catch (e) {
@@ -202,7 +213,7 @@ class AdminDashboardScreen extends ConsumerWidget {
     );
   }
 
-  void _showAddTransactionDialog(BuildContext context, WidgetRef ref) {
+  void _showAddTransactionDialog(BuildContext context, WidgetRef ref, AppUser actor) {
     final amountCtrl = TextEditingController();
     final descCtrl = TextEditingController();
     var type = 'income';
@@ -244,6 +255,12 @@ class AdminDashboardScreen extends ConsumerWidget {
               try {
                 final adminService = ref.read(firestoreAdminServiceProvider);
                 await adminService.addTransaction(transaction);
+                await ref.read(notificationServiceProvider).transactionAdded(
+                      actor: actor,
+                      transactionId: id,
+                      type: type,
+                      amount: amount,
+                    );
                 Navigator.of(ctx).pop();
                 ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context, 'transaction_added'))));
               } catch (e) {

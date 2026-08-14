@@ -8,6 +8,7 @@ import 'package:be_human_app/core/theme/app_theme.dart';
 import 'package:be_human_app/core/languages/app_localizations.dart';
 import 'package:be_human_app/features/admin/presentation/providers/admin_providers.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:be_human_app/features/notifications/presentation/widgets/notification_bell.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -32,30 +33,39 @@ class HomeScreen extends ConsumerWidget {
               SizedBox(height: 20.h),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20.w),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                // The home screen has no app bar, so the bell sits beside the
+                // greeting instead — it must be reachable from every screen.
+                child: Row(
                   children: [
-                    Text(
-                      AppLocalizations.of(context, 'overview'),
-                      style: TextStyle(
-                        color: colorScheme.onSurface,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            AppLocalizations.of(context, 'overview'),
+                            style: TextStyle(
+                              color: colorScheme.onSurface,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                          SizedBox(height: 4.h),
+                          Text(
+                            user.when(
+                              data: (u) => u?.name ?? '',
+                              loading: () => '...',
+                              error: (_, __) => '',
+                            ),
+                            style: TextStyle(
+                              color: colorScheme.primary,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    SizedBox(height: 4.h),
-                    Text(
-                      user.when(
-                        data: (u) => u?.name ?? '',
-                        loading: () => '...',
-                        error: (_, __) => '',
-                      ),
-                      style: TextStyle(
-                        color: colorScheme.primary,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    const NotificationBell(),
                   ],
                 ),
               ),

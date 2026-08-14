@@ -13,6 +13,8 @@ import 'package:be_human_app/features/admin/presentation/providers/admin_provide
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 import 'package:be_human_app/features/proposals/presentation/widgets/pdf_viewer_widget.dart';
+import 'package:be_human_app/features/notifications/presentation/providers/notification_providers.dart';
+import 'package:be_human_app/features/notifications/presentation/widgets/notification_bell.dart';
 
 /// Supabase rejects very large objects, and a huge proposal is more likely a
 /// mistake than intent, so it is caught before the upload starts.
@@ -30,7 +32,10 @@ class ProposalsListScreen extends ConsumerWidget {
     final scheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: Text(AppLocalizations.of(context, 'proposals'))),
+      appBar: AppBar(
+        title: Text(AppLocalizations.of(context, 'proposals')),
+        actions: const [NotificationBell()],
+      ),
       body: ListView.builder(
         padding: EdgeInsets.only(top: 12.h, bottom: 80.h, left: 12.w, right: 12.w),
         itemCount: proposals.value?.length ?? 0,
@@ -138,6 +143,14 @@ class ProposalsListScreen extends ConsumerWidget {
         'submittedBy': user.uid,
         'submittedByName': user.name,
       });
+
+      // Only after the proposal is safely stored — a notification about a
+      // proposal that failed to save would be worse than no notification.
+      await ref.read(notificationServiceProvider).proposalSubmitted(
+            actor: user,
+            proposalId: id,
+            title: file.name,
+          );
 
       messenger.showSnackBar(SnackBar(content: Text(addedMessage)));
     } on FileStorageException catch (e) {
