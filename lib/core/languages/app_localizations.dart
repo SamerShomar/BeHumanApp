@@ -15,6 +15,11 @@ class AppLocalizations {
   static final Map<String, Map<String, String>> _translations = {
     'en': {
       'app_title': 'Be Human Foundation',
+      'dashboard_short': 'Dashboard',
+      'view_all': 'View all',
+      'no_transactions': 'No movements recorded yet',
+      'preferences': 'Preferences',
+      'account': 'Account',
       'notifications': 'Notifications',
       'no_notifications': 'Nothing new yet',
       'mark_all_read': 'Mark all read',
@@ -198,6 +203,11 @@ class AppLocalizations {
     },
     'ar': {
       'app_title': 'مؤسسة بي هيومان',
+      'dashboard_short': 'لوحة التحكم',
+      'view_all': 'عرض الكل',
+      'no_transactions': 'لا توجد حركات مالية بعد',
+      'preferences': 'التفضيلات',
+      'account': 'الحساب',
       'notifications': 'الإشعارات',
       'no_notifications': 'لا توجد إشعارات جديدة',
       'mark_all_read': 'تعليم الكل كمقروء',
@@ -381,6 +391,11 @@ class AppLocalizations {
     },
     'nl': {
       'app_title': 'Be Human Foundation',
+      'dashboard_short': 'Dashboard',
+      'view_all': 'Alles bekijken',
+      'no_transactions': 'Nog geen boekingen',
+      'preferences': 'Voorkeuren',
+      'account': 'Account',
       'notifications': 'Meldingen',
       'no_notifications': 'Nog niets nieuws',
       'mark_all_read': 'Alles als gelezen markeren',

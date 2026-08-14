@@ -6,6 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import 'package:be_human_app/core/languages/app_localizations.dart';
+import 'package:be_human_app/core/theme/app_colors.dart';
+import 'package:be_human_app/core/utils/formatters.dart';
+import 'package:be_human_app/core/widgets/app_fab.dart';
+import 'package:be_human_app/core/widgets/glass.dart';
+import 'package:be_human_app/core/widgets/stat_card.dart';
+import 'package:be_human_app/core/widgets/state_views.dart';
 import 'package:be_human_app/features/finance/data/statement_exporter.dart';
 import 'package:be_human_app/features/finance/domain/statement_range.dart';
 import 'package:be_human_app/features/finance/presentation/widgets/statement_document.dart';
@@ -38,9 +44,15 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
         : _range!.filter(transactions.valueOrNull ?? const []);
     final finances = StatementRange.totals(visible);
 
+    // Gaza members see the ledger but cannot change it; the rules enforce the
+    // same thing server-side, so this only decides what is worth showing.
+    final hasWriteAccess =
+        ref.watch(currentUserStreamProvider).valueOrNull?.hasFinancialAccess ?? false;
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text(AppLocalizations.of(context, 'financial')),
+      backgroundColor: Colors.transparent,
+      appBar: GlassAppBar(
+        title: AppLocalizations.of(context, 'financial'),
         actions: [
           IconButton(
             icon: const Icon(Icons.date_range),
@@ -66,65 +78,102 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
           const NotificationBell(),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(child: _balanceCard(AppLocalizations.of(context, 'balance'), finances['balance'] ?? 0, Colors.blue)),
-                const SizedBox(width: 8),
-                Expanded(child: _balanceCard(AppLocalizations.of(context, 'incoming'), finances['totalIncome'] ?? 0, Colors.green)),
-                const SizedBox(width: 8),
-                Expanded(child: _balanceCard(AppLocalizations.of(context, 'outgoing'), finances['totalExpense'] ?? 0, Colors.red)),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0,
+            ),
+            child: StatCardRow(
+              cards: [
+                StatCard(
+                  label: AppLocalizations.of(context, 'balance'),
+                  amount: finances['balance'] ?? 0,
+                  color: AppColors.brand,
+                  icon: Icons.account_balance_wallet_outlined,
+                ),
+                StatCard(
+                  label: AppLocalizations.of(context, 'incoming'),
+                  amount: finances['totalIncome'] ?? 0,
+                  color: AppColors.success,
+                  icon: Icons.south_west,
+                ),
+                StatCard(
+                  label: AppLocalizations.of(context, 'outgoing'),
+                  amount: finances['totalExpense'] ?? 0,
+                  color: AppColors.danger,
+                  icon: Icons.north_east,
+                ),
               ],
             ),
-            const SizedBox(height: 12),
-            if (_range != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  '${AppLocalizations.of(context, 'from_date')} '
-                  '${DateFormat('yyyy-MM-dd').format(_range!.from)}  '
-                  '${AppLocalizations.of(context, 'to_date')} '
-                  '${DateFormat('yyyy-MM-dd').format(_range!.to)}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+          ),
+          if (_range != null || !hasWriteAccess)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0,
               ),
-            if (!(ref.watch(currentUserStreamProvider).valueOrNull?.hasFinancialAccess ?? true))
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  AppLocalizations.of(context, 'read_only_notice'),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-            Text(AppLocalizations.of(context, 'transactions'), style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Expanded(
-              child: transactions.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, s) => Center(child: Text('Error: ${e.toString()}')),
-                data: (transactions) => ListView.builder(
-                  itemCount: transactions.length,
-                  itemBuilder: (context, i) => _TransactionTile(transaction: transactions[i]),
-                ),
+              child: Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: [
+                  if (_range != null)
+                    _InfoPill(
+                      icon: Icons.date_range,
+                      label: '${Formatters.date(_range!.from)}  →  '
+                          '${Formatters.date(_range!.to)}',
+                      onClear: () => setState(() => _range = null),
+                    ),
+                  if (!hasWriteAccess)
+                    _InfoPill(
+                      icon: Icons.visibility_outlined,
+                      label: AppLocalizations.of(context, 'read_only_notice'),
+                    ),
+                ],
               ),
             ),
-          ],
-        ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.sm,
+            ),
+            child: Text(
+              AppLocalizations.of(context, 'transactions'),
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          ),
+          Expanded(
+            child: transactions.when(
+              loading: () => const LoadingStateView(),
+              error: (e, s) => ErrorStateView(error: e),
+              data: (_) {
+                if (visible.isEmpty) {
+                  return EmptyStateView(
+                    icon: Icons.receipt_long_outlined,
+                    message: AppLocalizations.of(context, 'no_transactions'),
+                  );
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg, 0, AppSpacing.lg, 120,
+                  ),
+                  itemCount: visible.length,
+                  itemBuilder: (context, i) => Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                    child: _TransactionTile(transaction: visible[i]),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
-      floatingActionButton: ref.watch(currentUserStreamProvider).when(
-        loading: () => null,
-        error: (e, s) => null,
-        data: (user) => (user != null && user.hasFinancialAccess)
-            ? FloatingActionButton(
-                onPressed: () => _showAddTransactionDialog(context, ref),
-                child: const Icon(Icons.add),
-              )
-            : null,
-      ),
+      floatingActionButton: hasWriteAccess
+          ? AppFab(
+              icon: Icons.add,
+              label: AppLocalizations.of(context, 'add_movement'),
+              onPressed: () => _showAddTransactionDialog(context, ref),
+            )
+          : null,
     );
   }
 
@@ -190,22 +239,6 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
       }
     }
     return earliest;
-  }
-
-  Widget _balanceCard(String label, double value, Color color) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text('${value.toStringAsFixed(2)}\$', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 18)),
-          ],
-        ),
-      ),
-    );
   }
 
   void _showAddTransactionDialog(BuildContext context, WidgetRef ref) {
@@ -387,27 +420,80 @@ class _TransactionTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isIncome = transaction['type'] == 'income';
     final isAdmin = ref.watch(currentUserStreamProvider).valueOrNull?.isAdmin ?? false;
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final color = isIncome ? AppColors.success : AppColors.danger;
 
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: isIncome ? Colors.green : Colors.red,
-        child: Icon(
-          isIncome ? Icons.arrow_downward : Icons.arrow_upward,
-          color: Colors.white,
-        ),
+    return GlassCard(
+      blurred: false,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.md,
       ),
-      title: Text(transaction['description'] as String? ??
-          transaction['fileName'] as String? ??
-          ''),
-      subtitle: Text('${transaction['amount'] ?? 0} — ${transaction['date'] ?? ''}'),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
         children: [
-          Text(isIncome ? '+${transaction['amount']}' : '-${transaction['amount']}'),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.14),
+              borderRadius: BorderRadius.circular(AppRadius.small),
+            ),
+            child: Icon(
+              isIncome ? Icons.south_west : Icons.north_east,
+              color: color,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  transaction['description'] as String? ??
+                      transaction['fileName'] as String? ??
+                      '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall,
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    // A readable day, not the stored ISO timestamp — this row
+                    // used to print "2026-08-10T09:00:00.000".
+                    Text(
+                      Formatters.date(transaction['date']),
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    if (transaction['fileName'] != null) ...[
+                      const SizedBox(width: 6),
+                      Icon(
+                        Icons.attach_file,
+                        size: 12,
+                        color: theme.textTheme.bodySmall?.color,
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          // The amount appears once, here. It used to be printed twice on the
+          // same row — plain in the subtitle and signed in the trailing slot.
+          Text(
+            Formatters.signedAmount(transaction['amount'], isIncome: isIncome),
+            style: theme.textTheme.titleSmall?.copyWith(color: color),
+          ),
           if (isAdmin)
             IconButton(
-              icon: Icon(Icons.delete_outline, color: scheme.error),
+              visualDensity: VisualDensity.compact,
+              icon: Icon(
+                Icons.delete_outline,
+                size: 20,
+                color: theme.colorScheme.onSurface.withOpacity(0.45),
+              ),
               tooltip: AppLocalizations.of(context, 'delete'),
               onPressed: () => _confirmAndDelete(context, ref),
             ),
@@ -482,6 +568,63 @@ class _StatementHost extends StatelessWidget {
       range: range,
       transactions: transactions,
       issuedBy: issuedBy,
+    );
+  }
+}
+
+/// A small status pill above the ledger: the active date filter, or a note
+/// that this user can only read.
+class _InfoPill extends StatelessWidget {
+  const _InfoPill({required this.icon, required this.label, this.onClear});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+
+    return Container(
+      padding: EdgeInsets.only(
+        left: AppSpacing.md,
+        right: onClear == null ? AppSpacing.md : AppSpacing.xs,
+        top: 6,
+        bottom: 6,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.glassFill(dark),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(color: AppColors.glassStroke(dark)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: theme.textTheme.bodySmall?.color),
+          const SizedBox(width: 6),
+          // Flexible, not a bare Text: the read-only notice is a full sentence
+          // and is much longer in Dutch than in English.
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall,
+            ),
+          ),
+          if (onClear != null)
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              padding: EdgeInsets.zero,
+              iconSize: 16,
+              tooltip: AppLocalizations.of(context, 'clear_filter'),
+              onPressed: onClear,
+              icon: const Icon(Icons.close),
+            ),
+        ],
+      ),
     );
   }
 }

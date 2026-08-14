@@ -13,6 +13,7 @@ import 'package:be_human_app/features/splash/presentation/screens/splash_screen.
 import 'package:be_human_app/features/no_internet/presentation/screens/no_internet_screen.dart';
 import 'package:be_human_app/features/proposals/presentation/screens/proposals_list_screen.dart';
 import 'package:be_human_app/features/finance/presentation/screens/finance_screen.dart';
+import 'package:be_human_app/core/utils/formatters.dart';
 import 'package:be_human_app/features/home/presentation/screens/home_screen.dart';
 import 'package:be_human_app/core/utils/connectivity.dart';
 import 'package:be_human_app/core/services/file_storage_service.dart';
@@ -44,7 +45,12 @@ void main() {
     expect(fileStorageServiceProvider, isNotNull);
     expect(const PdfViewerWidget(storagePath: 'p1.pdf'), isNotNull);
     expect(usersProvider, isNotNull);
-    expect(formatAmount(1234.5), '1,234.5\$');
-    expect(formatAmount(null), '—');
+    // Money is always two decimals with separators; the same figure used to
+    // print three different ways across the app.
+    expect(Formatters.amount(1234.5), '1,234.50\$');
+    expect(Formatters.amount(null), '—');
+    expect(Formatters.signedAmount(840.5, isIncome: false), '−840.50\$');
+    // Stored timestamps must never reach a user as-is.
+    expect(Formatters.date('2026-08-10T09:00:00.000'), '2026-08-10');
   });
 }

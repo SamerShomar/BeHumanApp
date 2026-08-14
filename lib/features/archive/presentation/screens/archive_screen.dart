@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:be_human_app/core/languages/app_localizations.dart';
+import 'package:be_human_app/core/theme/app_colors.dart';
+import 'package:be_human_app/core/widgets/app_fab.dart';
+import 'package:be_human_app/core/widgets/glass.dart';
+import 'package:be_human_app/core/widgets/state_views.dart';
 import 'package:be_human_app/features/archive/domain/archive_models.dart';
 import 'package:be_human_app/features/archive/presentation/providers/archive_providers.dart';
 import 'package:be_human_app/features/archive/presentation/screens/archive_folder_screen.dart';
@@ -35,20 +39,23 @@ class ArchiveScreen extends ConsumerWidget {
     ];
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(AppLocalizations.of(context, 'archive')),
+      backgroundColor: Colors.transparent,
+      appBar: GlassAppBar(
+        title: AppLocalizations.of(context, 'archive'),
         actions: const [NotificationBell()],
       ),
       body: userFolders.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('${AppLocalizations.of(context, 'error_generic')}: $e')),
+        loading: () => const LoadingStateView(),
+        error: (e, _) => ErrorStateView(error: e),
         data: (folders) => GridView.builder(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 120,
+          ),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 1.1,
+            mainAxisSpacing: AppSpacing.md,
+            crossAxisSpacing: AppSpacing.md,
+            childAspectRatio: 1.15,
           ),
           itemCount: systemFolders.length + folders.length,
           itemBuilder: (context, i) {
@@ -59,9 +66,10 @@ class ArchiveScreen extends ConsumerWidget {
           },
         ),
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: AppFab(
+        icon: Icons.create_new_folder_outlined,
+        label: AppLocalizations.of(context, 'add_folder'),
         onPressed: () => _showCreateFolderDialog(context, ref),
-        child: const Icon(Icons.create_new_folder_outlined),
       ),
     );
   }
@@ -114,32 +122,42 @@ class _FolderTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
 
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+    return GestureDetector(
+      // Long-press deletes, but only a folder someone created — the two
+      // derived folders reflect other collections and cannot be removed.
+      onLongPress: folder.isSystem ? null : () => _confirmDelete(context, ref),
+      child: GlassCard(
+        padding: const EdgeInsets.all(AppSpacing.md),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => ArchiveFolderScreen(folder: folder)),
         ),
-        onLongPress: folder.isSystem ? null : () => _confirmDelete(context, ref),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.folder, size: 44, color: scheme.primary),
-              const SizedBox(height: 8),
-              Text(
-                folder.name,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyMedium,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: AppColors.brand.withOpacity(0.14),
+                borderRadius: BorderRadius.circular(AppRadius.small),
               ),
-            ],
-          ),
+              child: Icon(
+                folder.isSystem ? Icons.folder_special_outlined : Icons.folder_outlined,
+                size: 28,
+                color: AppColors.brand,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              folder.name,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleSmall,
+            ),
+          ],
         ),
       ),
     );

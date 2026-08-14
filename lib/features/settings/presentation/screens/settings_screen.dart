@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:be_human_app/core/languages/app_localizations.dart';
+import 'package:be_human_app/core/theme/app_colors.dart';
+import 'package:be_human_app/core/widgets/glass.dart';
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:be_human_app/core/providers/theme_provider.dart';
@@ -21,88 +22,118 @@ class SettingsScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(AppLocalizations.of(context, 'settings_title')),
+      backgroundColor: Colors.transparent,
+      appBar: GlassAppBar(
+        title: AppLocalizations.of(context, 'settings_title'),
         actions: const [NotificationBell()],
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(16.w),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 120,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.r)),
-              child: Padding(
-                padding: EdgeInsets.all(16.w),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    if (user != null) ...[
-                      AvatarPicker(user: user, radius: 36.r),
-                      SizedBox(width: 16.w),
-                    ],
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(user?.name ?? AppLocalizations.of(context, 'user_default'), style: theme.textTheme.titleLarge),
-                          SizedBox(height: 6.h),
-                          Text(user?.email ?? '', style: theme.textTheme.bodyMedium),
-                          SizedBox(height: 6.h),
-                          Text('${AppLocalizations.of(context, 'team_label')}: ${user == null ? '' : user.team.label(context)}', style: theme.textTheme.bodyMedium),
-                          SizedBox(height: 6.h),
-                          Text('${AppLocalizations.of(context, 'role_label')}: ${user == null ? '' : user.role.label(context)}', style: theme.textTheme.bodyMedium),
-                        ],
-                      ),
-                    ),
+            GlassCard(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Row(
+                children: [
+                  if (user != null) ...[
+                    AvatarPicker(user: user, radius: 34),
+                    const SizedBox(width: AppSpacing.lg),
                   ],
-                ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user?.name ?? AppLocalizations.of(context, 'user_default'),
+                          style: theme.textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(user?.email ?? '', style: theme.textTheme.bodySmall),
+                        const SizedBox(height: AppSpacing.sm),
+                        Wrap(
+                          spacing: AppSpacing.sm,
+                          runSpacing: AppSpacing.xs,
+                          children: [
+                            if (user != null) _Tag(label: user.team.label(context)),
+                            if (user != null)
+                              _Tag(label: user.role.label(context), accent: true),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            SizedBox(height: 12.h),
-            ElevatedButton(
-              onPressed: () => _showChangePasswordDialog(context, ref),
-              child: Text(AppLocalizations.of(context, 'change_password')),
-            ),
-            SizedBox(height: 8.h),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(AppLocalizations.of(context, 'theme_mode'), style: theme.textTheme.bodyLarge),
-                Switch(
-                  value: isDark,
-                  onChanged: (v) => ref.read(themeProvider.notifier).setTheme(v),
-                ),
-              ],
-            ),
-            SizedBox(height: 8.h),
-            Row(
-              children: [
-                Expanded(child: Text(AppLocalizations.of(context, 'language'), style: theme.textTheme.bodyLarge)),
-                DropdownButton<Locale>(
-                  value: ref.watch(localeProvider),
-                  items: [
-                    DropdownMenuItem(value: const Locale('en'), child: Text(AppLocalizations.of(context, 'english'))),
-                    DropdownMenuItem(value: const Locale('ar'), child: Text(AppLocalizations.of(context, 'arabic'))),
-                    DropdownMenuItem(value: const Locale('nl'), child: Text(AppLocalizations.of(context, 'dutch'))),
-                  ],
-                  onChanged: (locale) {
-                    if (locale == null) return;
-                    ref.read(localeProvider.notifier).setLocale(locale);
+            const SizedBox(height: AppSpacing.lg),
 
-                    // Recorded on the profile too, so a push notification
-                    // composed on the server arrives in this language.
-                    if (user != null) {
-                      ref
-                          .read(profileServiceProvider)
-                          .updateLocale(user.uid, locale.languageCode);
-                    }
-                  },
-                ),
-              ],
+            // Preferences grouped into one panel instead of loose rows
+            // floating on the background.
+            _SectionLabel(text: AppLocalizations.of(context, 'preferences')),
+            GlassCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  _SettingRow(
+                    icon: Icons.dark_mode_outlined,
+                    label: AppLocalizations.of(context, 'theme_mode'),
+                    trailing: Switch(
+                      value: isDark,
+                      onChanged: (v) => ref.read(themeProvider.notifier).setTheme(v),
+                    ),
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  _SettingRow(
+                    icon: Icons.translate,
+                    label: AppLocalizations.of(context, 'language'),
+                    trailing: DropdownButtonHideUnderline(
+                      child: DropdownButton<Locale>(
+                        value: ref.watch(localeProvider),
+                        borderRadius: BorderRadius.circular(AppRadius.button),
+                        items: [
+                          DropdownMenuItem(value: const Locale('en'), child: Text(AppLocalizations.of(context, 'english'))),
+                          DropdownMenuItem(value: const Locale('ar'), child: Text(AppLocalizations.of(context, 'arabic'))),
+                          DropdownMenuItem(value: const Locale('nl'), child: Text(AppLocalizations.of(context, 'dutch'))),
+                        ],
+                        onChanged: (locale) {
+                          if (locale == null) return;
+                          ref.read(localeProvider.notifier).setLocale(locale);
+
+                          // Recorded on the profile too, so a push notification
+                          // composed on the server arrives in this language.
+                          if (user != null) {
+                            ref
+                                .read(profileServiceProvider)
+                                .updateLocale(user.uid, locale.languageCode);
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            SizedBox(height: 8.h),
-            ElevatedButton(
+            const SizedBox(height: AppSpacing.lg),
+
+            _SectionLabel(text: AppLocalizations.of(context, 'account')),
+            ElevatedButton.icon(
+              onPressed: () => _showChangePasswordDialog(context, ref),
+              icon: const Icon(Icons.lock_outline, size: 20),
+              label: Text(AppLocalizations.of(context, 'change_password')),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            // Signing out ends the session; it used to be styled identically
+            // to "change password", which made the two indistinguishable.
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: theme.colorScheme.error,
+                side: BorderSide(color: theme.colorScheme.error.withOpacity(0.5)),
+              ),
+              icon: const Icon(Icons.logout, size: 20),
+              label: Text(AppLocalizations.of(context, 'logout')),
               onPressed: () async {
                 final messenger = ScaffoldMessenger.of(context);
                 final router = GoRouter.of(context);
@@ -131,7 +162,6 @@ class SettingsScreen extends ConsumerWidget {
                   );
                 }
               },
-              child: Text(AppLocalizations.of(context, 'logout')),
             ),
           ],
         ),
@@ -143,6 +173,87 @@ class SettingsScreen extends ConsumerWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => _ChangePasswordDialog(ref: ref),
+    );
+  }
+}
+
+/// A small heading above a group of settings.
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(
+        left: AppSpacing.xs,
+        right: AppSpacing.xs,
+        bottom: AppSpacing.sm,
+      ),
+      child: Text(text, style: Theme.of(context).textTheme.labelSmall),
+    );
+  }
+}
+
+/// One row inside a settings panel: icon, label, control.
+class _SettingRow extends StatelessWidget {
+  const _SettingRow({
+    required this.icon,
+    required this.label,
+    required this.trailing,
+  });
+
+  final IconData icon;
+  final String label;
+  final Widget trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(child: Text(label, style: theme.textTheme.bodyLarge)),
+          trailing,
+        ],
+      ),
+    );
+  }
+}
+
+/// The team and role badges on the profile card.
+class _Tag extends StatelessWidget {
+  const _Tag({required this.label, this.accent = false});
+
+  final String label;
+  final bool accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = accent
+        ? AppColors.brand
+        : theme.colorScheme.onSurface.withOpacity(0.55);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(color: color.withOpacity(0.35)),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(color: color),
+      ),
     );
   }
 }

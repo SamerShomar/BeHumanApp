@@ -1,13 +1,12 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:be_human_app/core/utils/connectivity.dart';
 
 import 'package:be_human_app/core/languages/app_localizations.dart';
+import 'package:be_human_app/core/theme/app_colors.dart';
+import 'package:be_human_app/core/widgets/glass.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -51,7 +50,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         if (!mounted) return;
         setState(() {
           isLoading = false;
-          errorMessage = "لا يوجد اتصال بالإنترنت. تأكد من شبكتك.";
+          errorMessage = AppLocalizations.of(context, 'no_internet_title');
         });
         return;
       }
@@ -124,147 +123,119 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [colorScheme.primary, colorScheme.secondary.withOpacity(0.9)],
-          ),
-        ),
-        child: Stack(
-          children: [
-            Positioned(
-              top: -80.h,
-              right: -80.w,
-              child: Container(
-                width: 280.w,
-                height: 280.h,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: colorScheme.onPrimary.withOpacity(0.25),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: -90.h,
-              left: -70.w,
-              child: Container(
-                width: 260.w,
-                height: 260.h,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: colorScheme.secondary.withOpacity(0.18),
-                ),
-              ),
-            ),
-            SafeArea(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.all(24.w),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(24.r),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                      child: Container(
-                        padding: EdgeInsets.all(24.w),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surface.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(24.r),
-                          border: Border.all(color: colorScheme.onSurface.withOpacity(0.12)),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Image.asset(
-                              'assets/images/logo.png',
-                              width: 120.w,
-                              height: 120.h,
-                              fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                            ),
-                            SizedBox(height: 16.h),
-                            Text(
-                              AppLocalizations.of(context, 'app_title'),
-                              style: theme.textTheme.titleLarge,
-                            ),
-                            SizedBox(height: 8.h),
-                            Text(
-                              AppLocalizations.of(context, 'login_subtitle'),
-                              style: theme.textTheme.bodyMedium,
-                            ),
-                            SizedBox(height: 28.h),
-                            _GlassTextField(
-                              controller: _emailController,
-                              hintText: AppLocalizations.of(context, 'email_hint'),
-                              keyboardType: TextInputType.emailAddress,
-                            ),
-                            SizedBox(height: 16.h),
-                            _GlassTextField(
-                              controller: _passwordController,
-                              hintText: AppLocalizations.of(context, 'password_hint'),
-                              obscureText: true,
-                            ),
-                            if (errorMessage != null)
-                              Padding(
-                                padding: EdgeInsets.only(top: 8.h),
-                                child: Text(
-                                  errorMessage!,
-                                  style: TextStyle(
-                                    color: Colors.red,
-                                    fontSize: 12.sp,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            SizedBox(height: 28.h),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 54.h,
-                              child: ElevatedButton(
-                                onPressed: isLoading ? null : _handleLogin,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: colorScheme.secondary,
-                                  foregroundColor: colorScheme.onSecondary,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16.r),
-                                  ),
-                                ),
-                                child: isLoading
-                                    ? const SizedBox(
-                                        width: 24,
-                                        height: 24,
-                                        child: CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : Text(AppLocalizations.of(context, 'login_button')),
-                              ),
-                            ),
-                            SizedBox(height: 8.h),
-                            TextButton(
-                              onPressed: isLoading ? null : _handleForgotPassword,
-                              child: Text(
-                                AppLocalizations.of(context, 'forgot_password'),
-                                style: TextStyle(
-                                  color: colorScheme.onSurface,
-                                  fontSize: 13.sp,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+      backgroundColor: Colors.transparent,
+      body: AppBackground(
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpacing.xl),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // The mark sits above the panel rather than inside it, so
+                    // the foundation is the first thing on the screen.
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withOpacity(0.75),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.brand.withOpacity(0.28),
+                            blurRadius: 40,
+                            offset: const Offset(0, 12),
+                          ),
+                        ],
+                      ),
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        width: 96,
+                        height: 96,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const SizedBox(width: 96, height: 96),
                       ),
                     ),
-                  ),
+                    const SizedBox(height: AppSpacing.lg),
+                    Text(
+                      AppLocalizations.of(context, 'app_title'),
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      AppLocalizations.of(context, 'login_subtitle'),
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    GlassCard(
+                      padding: const EdgeInsets.all(AppSpacing.xl),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _GlassTextField(
+                            controller: _emailController,
+                            hintText: AppLocalizations.of(context, 'email_hint'),
+                            icon: Icons.alternate_email,
+                            keyboardType: TextInputType.emailAddress,
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          _GlassTextField(
+                            controller: _passwordController,
+                            hintText: AppLocalizations.of(context, 'password_hint'),
+                            icon: Icons.lock_outline,
+                            obscureText: true,
+                          ),
+                          if (errorMessage != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: AppSpacing.md),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.error_outline,
+                                      size: 16, color: AppColors.danger),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      errorMessage!,
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(color: AppColors.danger),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          const SizedBox(height: AppSpacing.xl),
+                          ElevatedButton(
+                            onPressed: isLoading ? null : _handleLogin,
+                            child: isLoading
+                                ? const SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2.4,
+                                    ),
+                                  )
+                                : Text(AppLocalizations.of(context, 'login_button')),
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          TextButton(
+                            onPressed: isLoading ? null : _handleForgotPassword,
+                            child: Text(AppLocalizations.of(context, 'forgot_password')),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -272,46 +243,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 }
 
 class _GlassTextField extends StatelessWidget {
-  final TextEditingController controller;
-  final String hintText;
-  final bool obscureText;
-  final TextInputType? keyboardType;
-
   const _GlassTextField({
     required this.controller,
     required this.hintText,
+    required this.icon,
     this.obscureText = false,
     this.keyboardType,
   });
 
+  final TextEditingController controller;
+  final String hintText;
+  final IconData icon;
+  final bool obscureText;
+  final TextInputType? keyboardType;
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
     return TextField(
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
-      style: TextStyle(color: scheme.onSurface),
+      // Shape, fill and focus ring all come from inputDecorationTheme now, so
+      // this field looks the same as every other one in the app.
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: TextStyle(color: scheme.onSurface.withOpacity(0.6)),
-        filled: true,
-        fillColor: scheme.surface.withOpacity(0.2),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12.r),
-          borderSide: BorderSide(color: scheme.onSurface.withOpacity(0.2)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12.r),
-          borderSide: BorderSide(color: scheme.onSurface.withOpacity(0.2)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12.r),
-          borderSide: BorderSide(color: scheme.primary, width: 1.5),
-        ),
-        contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+        prefixIcon: Icon(icon, size: 20),
       ),
     );
   }

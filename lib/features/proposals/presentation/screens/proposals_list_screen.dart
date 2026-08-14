@@ -3,10 +3,15 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:file_picker/file_picker.dart';
 
 import 'package:be_human_app/core/languages/app_localizations.dart';
+import 'package:be_human_app/core/theme/app_colors.dart';
+import 'package:be_human_app/core/utils/formatters.dart';
+import 'package:be_human_app/core/widgets/app_fab.dart';
+import 'package:be_human_app/core/widgets/glass.dart';
+import 'package:be_human_app/core/widgets/state_views.dart';
+import 'package:be_human_app/core/widgets/status_chip.dart';
 import 'package:be_human_app/features/proposals/domain/proposal_status.dart';
 import 'package:be_human_app/core/services/file_storage_service.dart';
 import 'package:be_human_app/features/admin/presentation/providers/admin_providers.dart';
@@ -28,38 +33,47 @@ class ProposalsListScreen extends ConsumerWidget {
     final user = ref.watch(currentUserStreamProvider).value;
     final proposals = ref.watch(proposalsProvider);
 
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
     return Scaffold(
-      appBar: AppBar(
-        title: Text(AppLocalizations.of(context, 'proposals')),
+      backgroundColor: Colors.transparent,
+      appBar: GlassAppBar(
+        title: AppLocalizations.of(context, 'proposals'),
         actions: const [NotificationBell()],
       ),
-      body: ListView.builder(
-        padding: EdgeInsets.only(top: 12.h, bottom: 80.h, left: 12.w, right: 12.w),
-        itemCount: proposals.value?.length ?? 0,
-        itemBuilder: (context, index) {
-          final p = proposals.value![index];
-          return Card(
-            margin: EdgeInsets.only(bottom: 12.h),
-            color: scheme.surface,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
-            child: ListTile(
-              contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-              title: Text(p['title'] ?? p['fileName'] ?? AppLocalizations.of(context, 'proposal_placeholder'), style: theme.textTheme.bodyLarge),
-              subtitle: Text('${ProposalStatus.label(context, p['status'])} • ${p['submittedByName'] ?? ''}', style: theme.textTheme.bodyMedium),
-              onTap: () => _showProposalDetails(context, ref, p, user),
+      body: proposals.when(
+        loading: () => const LoadingStateView(),
+        error: (error, _) => ErrorStateView(error: error),
+        data: (items) {
+          if (items.isEmpty) {
+            // All three of loading, failed and empty used to render the same
+            // blank area, so a slow connection was indistinguishable from a
+            // broken one.
+            return EmptyStateView(
+              icon: Icons.description_outlined,
+              message: AppLocalizations.of(context, 'no_proposals'),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 120,
+            ),
+            itemCount: items.length,
+            itemBuilder: (context, index) => Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.md),
+              child: _ProposalTile(
+                proposal: items[index],
+                onTap: () => _showProposalDetails(context, ref, items[index], user),
+              ),
             ),
           );
         },
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: (user != null && user.team == UserTeam.gaza)
-          ? FloatingActionButton(
+          ? AppFab(
+              icon: Icons.add,
+              label: AppLocalizations.of(context, 'add_proposal_new'),
               onPressed: () => _pickPdfAndAdd(context, ref, user),
-              backgroundColor: scheme.secondary,
-              child: Icon(Icons.add, color: scheme.onSecondary),
             )
           : null,
     );
@@ -244,6 +258,90 @@ class ProposalsListScreen extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// One proposal in the list.
+///
+/// It now carries what a reviewer actually needs to triage without opening
+/// anything: the status as a coloured chip, who sent it, when, and for how
+/// much. The old row showed only a title and a grey line of text.
+class _ProposalTile extends StatelessWidget {
+  const _ProposalTile({required this.proposal, required this.onTap});
+
+  final Map<String, dynamic> proposal;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final status = proposal['status'];
+
+    return GlassCard(
+      onTap: onTap,
+      // Inside a scrolling list a backdrop filter per row costs more than it
+      // adds; the translucent fill over the gradient still reads as glass.
+      blurred: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: StatusChip.colorFor(status).withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(AppRadius.small),
+                ),
+                child: Icon(
+                  Icons.picture_as_pdf_outlined,
+                  color: StatusChip.colorFor(status),
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      proposal['title'] as String? ??
+                          proposal['fileName'] as String? ??
+                          AppLocalizations.of(context, 'proposal_placeholder'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${proposal['submittedByName'] ?? ''}'
+                      '${proposal['date'] == null ? '' : '  •  ${Formatters.date(proposal['date'])}'}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              StatusChip(status: status, compact: true),
+              const Spacer(),
+              if ((proposal['amount'] as num?) != null &&
+                  (proposal['amount'] as num) > 0)
+                Text(
+                  Formatters.amount(proposal['amount']),
+                  style: theme.textTheme.titleSmall?.copyWith(color: AppColors.brand),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

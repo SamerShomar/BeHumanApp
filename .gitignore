@@ -55,3 +55,4 @@ run.sh
 android/key.properties
 *.jks
 *.keystore
+test/failures/

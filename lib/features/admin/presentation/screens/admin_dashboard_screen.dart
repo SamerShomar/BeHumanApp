@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:be_human_app/core/languages/app_localizations.dart';
+import 'package:be_human_app/core/theme/app_colors.dart';
+import 'package:be_human_app/core/utils/formatters.dart';
+import 'package:be_human_app/core/widgets/glass.dart';
+import 'package:be_human_app/core/widgets/stat_card.dart';
+import 'package:be_human_app/core/widgets/state_views.dart';
 import 'package:be_human_app/features/proposals/domain/proposal_status.dart';
+import 'package:be_human_app/core/widgets/status_chip.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:be_human_app/features/admin/presentation/providers/admin_providers.dart';
 import 'package:be_human_app/features/about/data/website_scraper.dart';
@@ -19,6 +25,7 @@ class AdminDashboardScreen extends ConsumerWidget {
 
     if (user == null || !user.isAdmin) {
       return Scaffold(
+        backgroundColor: Colors.transparent,
         body: Center(
           child: Text(
             AppLocalizations.of(context, 'no_permission'),
@@ -33,13 +40,16 @@ class AdminDashboardScreen extends ConsumerWidget {
     final about = ref.watch(aboutProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(AppLocalizations.of(context, 'admin_dashboard')),
+      backgroundColor: Colors.transparent,
+      appBar: GlassAppBar(
+        title: AppLocalizations.of(context, 'admin_dashboard'),
         actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: ElevatedButton(
-              onPressed: () async {
+          // An ElevatedButton sat here before; with a real button theme it is
+          // 52px tall and does not belong in a toolbar.
+          IconButton(
+            tooltip: AppLocalizations.of(context, 'pull_website_action'),
+            icon: const Icon(Icons.cloud_download_outlined),
+            onPressed: () async {
                 final scraper = ref.read(websiteScraperProvider);
                 final snack = ScaffoldMessenger.of(context);
                 final contentUpdated = AppLocalizations.of(context, 'content_updated');
@@ -51,99 +61,130 @@ class AdminDashboardScreen extends ConsumerWidget {
                 } catch (e) {
                   snack.showSnackBar(SnackBar(content: Text(contentUpdateFailed)));
                 }
-              },
-              child: Text(AppLocalizations.of(context, 'pull_website_action')),
-            ),
+            },
           ),
           const NotificationBell(),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 120,
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // About preview
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(AppLocalizations.of(context, 'about_org'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Text('Mission: ${about['mission'] ?? ''}'),
-                    const SizedBox(height: 6),
-                    Text('Vision: ${about['vision'] ?? ''}'),
-                    const SizedBox(height: 6),
-                    Text('Description: ${about['description'] ?? ''}'),
-                  ],
+            StatCardRow(
+              cards: [
+                StatCard(
+                  label: AppLocalizations.of(context, 'balance'),
+                  amount: finances['balance'],
+                  color: AppColors.brand,
+                  icon: Icons.account_balance_wallet_outlined,
                 ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Proposals
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(AppLocalizations.of(context, 'proposals'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ElevatedButton(
-                  onPressed: () => _showAddProposalDialog(context, ref, user),
-                  child: Text(AppLocalizations.of(context, 'add_proposal_new')),
+                StatCard(
+                  label: AppLocalizations.of(context, 'revenues'),
+                  amount: finances['totalIncome'],
+                  color: AppColors.success,
+                  icon: Icons.south_west,
+                ),
+                StatCard(
+                  label: AppLocalizations.of(context, 'expenses'),
+                  amount: finances['totalExpense'],
+                  color: AppColors.danger,
+                  icon: Icons.north_east,
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            ...proposals.value?.map((p) => ListTile(
-                  title: Text(p['title'] ?? ''),
-                  subtitle: Text('${ProposalStatus.label(context, p['status'])} • ${p['date'] ?? ''}'),
-                  trailing: Text('${p['amount'] ?? ''}'),
-                )) ?? [],
+            const SizedBox(height: AppSpacing.xl),
 
-            const SizedBox(height: 16),
-
-            // Finances
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(AppLocalizations.of(context, 'financial'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ElevatedButton(
-                  onPressed: () => _showAddTransactionDialog(context, ref, user),
-                  child: Text(AppLocalizations.of(context, 'add_movement')),
-                ),
-              ],
+            _SectionHeader(
+              title: AppLocalizations.of(context, 'proposals'),
+              actionLabel: AppLocalizations.of(context, 'add_proposal_new'),
+              onAction: () => _showAddProposalDialog(context, ref, user),
             ),
-            const SizedBox(height: 8),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('${AppLocalizations.of(context, 'revenues')}: ${finances['totalIncome'] ?? 0}'),
-                    Text('${AppLocalizations.of(context, 'expenses')}: ${finances['totalExpense'] ?? 0}'),
-                    Text('${AppLocalizations.of(context, 'balance')}: ${finances['balance'] ?? 0}'),
-                  ],
+            for (final p in proposals.value ?? const <Map<String, dynamic>>[])
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: GlassCard(
+                  blurred: false,
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              p['title'] as String? ?? '',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                StatusChip(status: p['status'], compact: true),
+                                const SizedBox(width: AppSpacing.sm),
+                                Flexible(
+                                  child: Text(
+                                    Formatters.date(p['date']),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Text(
+                        Formatters.amount(p['amount']),
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleSmall
+                            ?.copyWith(color: AppColors.brand),
+                      ),
+                    ],
+                  ),
                 ),
+              ),
+
+            const SizedBox(height: AppSpacing.lg),
+            _SectionHeader(
+              title: AppLocalizations.of(context, 'financial'),
+              actionLabel: AppLocalizations.of(context, 'add_movement'),
+              onAction: () => _showAddTransactionDialog(context, ref, user),
+            ),
+            GlassCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(AppLocalizations.of(context, 'about_org'),
+                      style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(about['mission'] ?? '',
+                      style: Theme.of(context).textTheme.bodySmall),
+                ],
               ),
             ),
 
-            const SizedBox(height: 16),
-
-            // Users
-            Text(
-              AppLocalizations.of(context, 'members'),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.lg),
+            _SectionHeader(title: AppLocalizations.of(context, 'members')),
             ref.watch(usersProvider).when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (error, _) => Text('${AppLocalizations.of(context, 'error_generic')}: $error'),
+                  loading: () => const LoadingStateView(),
+                  error: (error, _) => ErrorStateView(error: error),
                   data: (users) => Column(
                     children: [
                       for (final member in users)
-                        _MemberTile(member: member, currentUserUid: user.uid),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                          child: _MemberTile(
+                            member: member,
+                            currentUserUid: user.uid,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -295,11 +336,30 @@ class _MemberTile extends ConsumerWidget {
     // everyone out of the dashboard.
     final isSelf = member.uid == currentUserUid;
 
-    return Card(
-      child: ListTile(
-        title: Text(member.name),
-        subtitle: Text('${member.email} • ${member.team.label(context)}'),
-        trailing: DropdownButton<UserRole>(
+    return GlassCard(
+      blurred: false,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(member.name, style: Theme.of(context).textTheme.titleSmall),
+                Text(
+                  '${member.email}  •  ${member.team.label(context)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<UserRole>(
           value: member.role,
           onChanged: isSelf
               ? null
@@ -318,11 +378,42 @@ class _MemberTile extends ConsumerWidget {
                     );
                   }
                 },
-          items: [
-            for (final role in UserRole.values)
-              DropdownMenuItem(value: role, child: Text(role.label(context))),
-          ],
-        ),
+              items: [
+                for (final role in UserRole.values)
+                  DropdownMenuItem(value: role, child: Text(role.label(context))),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A section title with an optional action beside it.
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, this.actionLabel, this.onAction});
+
+  final String title;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(title, style: Theme.of(context).textTheme.titleLarge),
+          ),
+          if (actionLabel != null && onAction != null)
+            TextButton.icon(
+              onPressed: onAction,
+              icon: const Icon(Icons.add, size: 18),
+              label: Text(actionLabel!),
+            ),
+        ],
       ),
     );
   }

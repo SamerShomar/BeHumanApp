@@ -1,3 +1,4 @@
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,7 +19,7 @@ import 'package:be_human_app/features/notifications/presentation/widgets/notific
 import 'package:be_human_app/features/admin/presentation/screens/admin_dashboard_screen.dart';
 import 'package:be_human_app/core/languages/app_localizations.dart';
 import 'package:be_human_app/core/providers/auth_state_provider.dart';
-import 'package:be_human_app/core/providers/theme_provider.dart';
+import 'package:be_human_app/core/theme/app_colors.dart';
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 
@@ -195,7 +196,8 @@ class MainShell extends ConsumerWidget {
       case UserRole.admin:
         return [
           NavigationItem(
-            title: AppLocalizations.of(context, 'admin_dashboard'),
+            // A short label: "Admin dashboard" does not fit a five-item bar.
+            title: AppLocalizations.of(context, 'dashboard_short'),
             icon: Iconsax.home,
             route: '/dashboard',
           ),
@@ -209,7 +211,6 @@ class MainShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDarkMode = ref.watch(themeProvider);
     final role = ref.watch(currentUserStreamProvider).valueOrNull?.role;
     final items = role == null
         ? const <NavigationItem>[]
@@ -219,81 +220,120 @@ class MainShell extends ConsumerWidget {
       (item) => location.startsWith(item.route),
     );
 
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final scaffoldBackgroundColor = isDarkMode ? const Color(0xFF0A1628) : const Color(0xFFF0F4F8);
-    final bottomNavColor = isDarkMode
-        ? const Color(0xFF0A1628).withOpacity(0.9)
-        : Colors.white.withOpacity(0.92);
-
     return Scaffold(
+      // Transparent so the app-wide gradient shows through; the backdrop is
+      // painted once above the router, not per screen.
+      backgroundColor: Colors.transparent,
+      extendBody: true,
       // Wrapping the shell rather than each screen means an incoming
       // notification is announced wherever the user happens to be.
       body: NotificationToaster(child: child),
-      backgroundColor: scaffoldBackgroundColor,
       bottomNavigationBar: items.isEmpty
           ? null
-          : Container(
-              decoration: BoxDecoration(
-                color: bottomNavColor,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: items.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final item = entry.value;
-                      final isSelected = selectedIndex == index;
+          : _GlassNavBar(items: items, selectedIndex: selectedIndex),
+    );
+  }
+}
 
-                      return GestureDetector(
-                        onTap: () => context.go(item.route),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? const Color(0xFF4A90D9).withOpacity(0.2)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(12),
-                            border: isSelected
-                                ? Border.all(
-                                    color: const Color(0xFF4A90D9),
-                                    width: 1,
-                                  )
-                                : null,
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                item.icon,
-                                color: isSelected
-                                    ? const Color(0xFF4A90D9)
-                                    : colorScheme.onSurface.withOpacity(0.6),
-                                size: 24,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                item.title,
-                                style: TextStyle(
-                                  color: isSelected
-                                      ? const Color(0xFF4A90D9)
-                                      : colorScheme.onSurface.withOpacity(0.6),
-                                  fontSize: 10,
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
+/// The frosted bar at the bottom of the shell.
+///
+/// `extendBody` on the Scaffold lets content scroll underneath it, which is
+/// the whole point of making it translucent — a solid bar over a gradient
+/// reads as a separate slab stuck to the screen.
+class _GlassNavBar extends StatelessWidget {
+  const _GlassNavBar({required this.items, required this.selectedIndex});
+
+  final List<NavigationItem> items;
+  final int selectedIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final scheme = Theme.of(context).colorScheme;
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.card)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: dark ? Colors.white.withOpacity(0.06) : Colors.white.withOpacity(0.55),
+            border: Border(top: BorderSide(color: AppColors.glassStroke(dark))),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  for (var index = 0; index < items.length; index++)
+                    _NavButton(
+                      item: items[index],
+                      isSelected: selectedIndex == index,
+                      color: scheme.onSurface,
+                    ),
+                ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavButton extends StatelessWidget {
+  const _NavButton({
+    required this.item,
+    required this.isSelected,
+    required this.color,
+  });
+
+  final NavigationItem item;
+  final bool isSelected;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tint = isSelected ? AppColors.brand : color.withOpacity(0.55);
+
+    return Expanded(
+      child: Semantics(
+        selected: isSelected,
+        button: true,
+        child: InkWell(
+          onTap: () => context.go(item.route),
+          borderRadius: BorderRadius.circular(AppRadius.button),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: isSelected ? AppColors.brand.withOpacity(0.14) : Colors.transparent,
+              borderRadius: BorderRadius.circular(AppRadius.button),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(item.icon, color: tint, size: 22),
+                const SizedBox(height: 4),
+                Text(
+                  item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: tint,
+                    fontSize: 10,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

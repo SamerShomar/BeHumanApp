@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:be_human_app/core/config/app_config.dart';
+import 'package:be_human_app/core/utils/formatters.dart';
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:be_human_app/features/notifications/domain/app_notification.dart';
@@ -99,7 +100,7 @@ class NotificationService {
         bodyKey: 'notification_transaction_body',
         params: {
           'name': actor.name,
-          'amount': amount.toStringAsFixed(2),
+          'amount': Formatters.plainAmount(amount),
         },
         audience: NotificationAudience.all,
         actorUid: actor.uid,

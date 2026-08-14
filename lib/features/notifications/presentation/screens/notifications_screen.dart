@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:be_human_app/core/languages/app_localizations.dart';
+import 'package:be_human_app/core/theme/app_colors.dart';
+import 'package:be_human_app/core/widgets/glass.dart';
+import 'package:be_human_app/core/widgets/state_views.dart';
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:be_human_app/features/notifications/domain/app_notification.dart';
@@ -20,8 +23,9 @@ class NotificationsScreen extends ConsumerWidget {
     final unread = ref.watch(unreadNotificationCountProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(AppLocalizations.of(context, 'notifications')),
+      backgroundColor: Colors.transparent,
+      appBar: GlassAppBar(
+        title: AppLocalizations.of(context, 'notifications'),
         actions: [
           if (unread > 0 && user != null)
             TextButton(
@@ -31,38 +35,24 @@ class NotificationsScreen extends ConsumerWidget {
         ],
       ),
       body: feed.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text('${AppLocalizations.of(context, 'error_generic')}: $e'),
-          ),
-        ),
+        loading: () => const LoadingStateView(),
+        error: (e, _) => ErrorStateView(error: e),
         data: (_) {
           if (user == null || mine.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.notifications_off_outlined,
-                    size: 56,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(AppLocalizations.of(context, 'no_notifications')),
-                ],
-              ),
+            return EmptyStateView(
+              icon: Icons.notifications_none,
+              message: AppLocalizations.of(context, 'no_notifications'),
             );
           }
 
-          return ListView.separated(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 120,
+            ),
             itemCount: mine.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (context, index) => _NotificationTile(
-              notification: mine[index],
-              user: user,
+            itemBuilder: (context, index) => Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.md),
+              child: _NotificationTile(notification: mine[index], user: user),
             ),
           );
         },
@@ -93,49 +83,100 @@ class _NotificationTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
     final isRead = notification.isReadBy(user.uid);
     final age = RelativeTime.describe(notification.createdAt);
+    final isProposal = notification.type == NotificationType.proposal;
+    // Money in and money out are not the same news, so they are not the same
+    // colour — the title key is what distinguishes them.
+    final accent = isProposal
+        ? AppColors.brand
+        : notification.titleKey == 'notification_expense_title'
+            ? AppColors.danger
+            : AppColors.success;
 
-    return ListTile(
-      // Unread entries are tinted rather than badged: the whole row reads as
-      // new at a glance, which matters on a small phone screen.
-      tileColor: isRead ? null : scheme.primary.withOpacity(0.06),
-      leading: CircleAvatar(
-        backgroundColor: notification.type == NotificationType.proposal
-            ? scheme.primary
-            : Colors.green,
-        child: Icon(
-          notification.type == NotificationType.proposal
-              ? Icons.description_outlined
-              : Icons.account_balance_wallet_outlined,
-          color: Colors.white,
-          size: 20,
-        ),
-      ),
-      title: Text(
-        AppLocalizations.of(context, notification.titleKey, notification.params),
-        style: TextStyle(fontWeight: isRead ? FontWeight.normal : FontWeight.bold),
-      ),
-      subtitle: Column(
+    return GlassCard(
+      blurred: false,
+      // Unread entries are washed with the accent rather than badged: the
+      // whole card reads as new at a glance, which matters on a small screen.
+      tint: isRead ? null : accent,
+      onTap: () => _open(context, ref, isRead),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(AppLocalizations.of(context, notification.bodyKey, notification.params)),
-          const SizedBox(height: 2),
-          Text(
-            AppLocalizations.of(context, age.key, age.params),
-            style: Theme.of(context).textTheme.bodySmall,
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: accent.withOpacity(0.16),
+              borderRadius: BorderRadius.circular(AppRadius.small),
+            ),
+            child: Icon(
+              isProposal
+                  ? Icons.description_outlined
+                  : Icons.account_balance_wallet_outlined,
+              color: accent,
+              size: 20,
+            ),
           ),
-        ],
-      ),
-      trailing: user.isAdmin
-          ? IconButton(
-              icon: Icon(Icons.delete_outline, color: scheme.error),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    if (!isRead) ...[
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: accent,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    Expanded(
+                      child: Text(
+                        AppLocalizations.of(
+                          context, notification.titleKey, notification.params,
+                        ),
+                        style: isRead
+                            ? theme.textTheme.titleSmall
+                            : theme.textTheme.titleMedium,
+                      ),
+                    ),
+                    Text(
+                      AppLocalizations.of(context, age.key, age.params),
+                      style: theme.textTheme.labelSmall,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  AppLocalizations.of(
+                    context, notification.bodyKey, notification.params,
+                  ),
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ),
+          if (user.isAdmin)
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              icon: Icon(
+                Icons.delete_outline,
+                size: 20,
+                color: theme.colorScheme.onSurface.withOpacity(0.45),
+              ),
               tooltip: AppLocalizations.of(context, 'delete'),
               onPressed: () => _delete(context, ref),
-            )
-          : null,
-      onTap: () => _open(context, ref, isRead),
+            ),
+        ],
+      ),
     );
   }
 

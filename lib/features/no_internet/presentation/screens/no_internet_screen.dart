@@ -7,6 +7,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:be_human_app/core/languages/app_localizations.dart';
+import 'package:be_human_app/core/widgets/glass.dart';
 import 'package:be_human_app/core/utils/connectivity.dart';
 
 /// Shown when the device has no network.
@@ -77,16 +78,10 @@ class _NoInternetScreenState extends ConsumerState<NoInternetScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: isDark
-                ? const [Color(0xFF0A1628), Color(0xFF102A47)]
-                : const [Color(0xFFF0F4F8), Color(0xFFD9E6F5)],
-          ),
-        ),
+      backgroundColor: Colors.transparent,
+      // The launch screens paint their own backdrop: they sit outside the
+      // shell, above which the app-wide one is installed.
+      body: AppBackground(
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
