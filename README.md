@@ -33,11 +33,17 @@ The exposure that remains is the **device**. These measures address it:
 | --- | --- | --- |
 | Offline cache disabled | `SecuritySettings.allowOfflineCache` | Firestore's local cache is an unencrypted SQLite file; with it off, no proposal or transaction is written to disk |
 | Cache cleared on sign-out | `AuthService.signOut` | Nothing readable is left behind for the next holder of the device |
-| Login required on every launch | `SecuritySettings.requireLoginOnLaunch` | Firebase Auth keeps the session on disk; without this, reopening the app skips the login screen entirely |
 | Auto sign-out after 10 min idle | `InactivityGuard` | An unlocked phone with the app open is otherwise full access |
 | `FLAG_SECURE` | `MainActivity.kt` | Blocks screenshots and screen recording, and blanks the recents-switcher thumbnail |
 | 5-minute signed URLs | `FileStorageService` | A copied PDF link cannot outlive the session |
 | Access rules | `firestore.rules` | Server-side enforcement — the real boundary, independent of the client |
+
+**Sessions persist across launches.** `SecuritySettings.requireLoginOnLaunch`
+is `false` by choice — signing in on every launch was too heavy for daily use —
+so Firebase Auth keeps the session and a restarted app resumes signed in. That
+means whoever holds an unlocked device holds the records: the idle timeout is
+the main guard while the app is open, and the device lock screen carries the
+rest. Set the constant back to `true` to require a password every launch.
 
 **Trade-off to be aware of:** with the offline cache disabled the app needs a
 live connection for every read and will not work offline. That is deliberate

@@ -26,14 +26,15 @@ class SecuritySettings {
 
   /// Whether a session must be re-entered every time the app is opened.
   ///
-  /// Firebase Auth keeps the signed-in user on disk, so without this, reopening
-  /// the app lands straight on the dashboard with no password — which undoes
-  /// the protections above for a phone that is lost or seized, and makes the
-  /// idle timeout pointless since closing the app resets it.
+  /// Deliberately `false`: signing in on every launch was judged too heavy for
+  /// daily use. Firebase Auth therefore keeps the signed-in user on disk and a
+  /// restarted app resumes straight into the dashboard.
   ///
-  /// Set to `false` to keep users signed in between launches, accepting that
-  /// whoever holds an unlocked device holds the organisation's records.
-  static const bool requireLoginOnLaunch = true;
+  /// The consequence is that whoever holds an unlocked device holds the
+  /// organisation's records, so [inactivityTimeout] is now the main guard while
+  /// the app is open, and the device's own lock screen carries the rest. Set
+  /// this back to `true` to require a password on every launch.
+  static const bool requireLoginOnLaunch = false;
 
   /// Applies settings that must be in place before Firestore or the router
   /// first read their state.
