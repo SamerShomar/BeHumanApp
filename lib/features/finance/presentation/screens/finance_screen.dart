@@ -3,22 +3,66 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+
 import 'package:be_human_app/core/languages/app_localizations.dart';
+import 'package:be_human_app/features/finance/data/statement_exporter.dart';
+import 'package:be_human_app/features/finance/domain/statement_range.dart';
+import 'package:be_human_app/features/finance/presentation/widgets/statement_document.dart';
 import 'package:be_human_app/core/services/file_storage_service.dart';
 import 'package:be_human_app/features/admin/presentation/providers/admin_providers.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 
-class FinanceScreen extends ConsumerWidget {
+class FinanceScreen extends ConsumerStatefulWidget {
   const FinanceScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final finances = ref.watch(financesProvider);
+  ConsumerState<FinanceScreen> createState() => _FinanceScreenState();
+}
+
+class _FinanceScreenState extends ConsumerState<FinanceScreen> {
+  StatementRange? _range;
+  bool _isExporting = false;
+
+  @override
+  Widget build(BuildContext context) {
     final transactions = ref.watch(transactionsProvider);
 
+    // Totals follow the filter, so an exported statement and the figures on
+    // screen can never disagree.
+    final visible = _range == null
+        ? (transactions.valueOrNull ?? const <Map<String, dynamic>>[])
+        : _range!.filter(transactions.valueOrNull ?? const []);
+    final finances = StatementRange.totals(visible);
+
     return Scaffold(
-      appBar: AppBar(title: Text(AppLocalizations.of(context, 'financial'))),
+      appBar: AppBar(
+        title: Text(AppLocalizations.of(context, 'financial')),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.date_range),
+            tooltip: AppLocalizations.of(context, 'pick_range'),
+            onPressed: _pickRange,
+          ),
+          if (_range != null)
+            IconButton(
+              icon: const Icon(Icons.filter_alt_off),
+              tooltip: AppLocalizations.of(context, 'clear_filter'),
+              onPressed: () => setState(() => _range = null),
+            ),
+          IconButton(
+            icon: _isExporting
+                ? const SizedBox(
+                    width: 18, height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.picture_as_pdf),
+            tooltip: AppLocalizations.of(context, 'export_statement'),
+            onPressed: _isExporting ? null : () => _export(visible),
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -34,6 +78,17 @@ class FinanceScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 12),
+            if (_range != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  '${AppLocalizations.of(context, 'from_date')} '
+                  '${DateFormat('yyyy-MM-dd').format(_range!.from)}  '
+                  '${AppLocalizations.of(context, 'to_date')} '
+                  '${DateFormat('yyyy-MM-dd').format(_range!.to)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
             if (!(ref.watch(currentUserStreamProvider).valueOrNull?.hasFinancialAccess ?? true))
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -68,6 +123,70 @@ class FinanceScreen extends ConsumerWidget {
             : null,
       ),
     );
+  }
+
+  Future<void> _pickRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 1),
+      initialDateRange: _range == null
+          ? null
+          : DateTimeRange(start: _range!.from, end: _range!.to),
+    );
+    if (picked == null) return;
+    setState(() => _range = StatementRange(from: picked.start, to: picked.end));
+  }
+
+  Future<void> _export(List<Map<String, dynamic>> visible) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final readyMessage = AppLocalizations.of(context, 'statement_ready');
+    final user = ref.read(currentUserStreamProvider).valueOrNull;
+
+    // Exporting without a chosen period means "everything on record", so the
+    // header still needs a range to print.
+    final range = _range ??
+        StatementRange(
+          from: _earliestDate(visible) ?? DateTime.now(),
+          to: DateTime.now(),
+        );
+
+    setState(() => _isExporting = true);
+    try {
+      const exporter = StatementExporter();
+      final png = await exporter.renderToImage(
+        _StatementHost(
+          range: range,
+          transactions: visible,
+          issuedBy: user?.name ?? '',
+        ),
+        size: const Size(StatementDocument.pageWidth, StatementDocument.pageHeight),
+      );
+      final pdf = exporter.buildPdf(png);
+      await exporter.share(
+        pdf,
+        fileName: 'be-human-statement-'
+            '${DateFormat('yyyyMMdd').format(range.from)}-'
+            '${DateFormat('yyyyMMdd').format(range.to)}.pdf',
+      );
+      messenger.showSnackBar(SnackBar(content: Text(readyMessage)));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('$e')));
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  static DateTime? _earliestDate(List<Map<String, dynamic>> transactions) {
+    DateTime? earliest;
+    for (final t in transactions) {
+      final date = StatementRange.parseDate(t['date']);
+      if (date != null && (earliest == null || date.isBefore(earliest))) {
+        earliest = date;
+      }
+    }
+    return earliest;
   }
 
   Widget _balanceCard(String label, double value, Color color) {
@@ -324,5 +443,28 @@ class _TransactionTile extends ConsumerWidget {
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('$e')));
     }
+  }
+}
+
+/// Supplies the localisation scope the statement needs while it is rendered
+/// off-screen, where there is no MaterialApp above it.
+class _StatementHost extends StatelessWidget {
+  const _StatementHost({
+    required this.range,
+    required this.transactions,
+    required this.issuedBy,
+  });
+
+  final StatementRange range;
+  final List<Map<String, dynamic>> transactions;
+  final String issuedBy;
+
+  @override
+  Widget build(BuildContext context) {
+    return StatementDocument(
+      range: range,
+      transactions: transactions,
+      issuedBy: issuedBy,
+    );
   }
 }
