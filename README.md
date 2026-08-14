@@ -106,16 +106,36 @@ opened.
 
 ### Running
 
-Keys are passed at build time and are never committed:
+Copy the template and fill in the two values from **Project Settings → API**:
 
 ```bash
-flutter run \
-  --dart-define=SUPABASE_URL=https://xxxx.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=eyJhbGci...
+cp env.example.json env.json
 ```
 
-Same flags apply to `flutter build apk`. To use a different bucket name, add
-`--dart-define=SUPABASE_PROPOSALS_BUCKET=<name>`.
+```json
+{
+  "SUPABASE_URL": "https://your-project-ref.supabase.co",
+  "SUPABASE_ANON_KEY": "eyJhbGci..."
+}
+```
+
+Then run:
+
+```bash
+flutter run --dart-define-from-file=env.json
+flutter build apk --dart-define-from-file=env.json
+```
+
+`env.json` is gitignored, so the keys stay out of the repository.
+
+To avoid typing the flag at all:
+
+- **VS Code** — press F5. `.vscode/launch.json` already passes it.
+- **Android Studio** — Run → Edit Configurations → *Additional run args*:
+  `--dart-define-from-file=env.json`
+
+To use a different bucket name, add `"SUPABASE_PROPOSALS_BUCKET": "<name>"` to
+the same file.
 
 Without these flags the app still builds and runs; uploading a proposal reports
 that storage is not configured rather than failing obscurely.
