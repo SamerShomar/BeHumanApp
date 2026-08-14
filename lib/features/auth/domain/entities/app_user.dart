@@ -1,4 +1,7 @@
+import 'package:flutter/widgets.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
+
+import 'package:be_human_app/core/languages/app_localizations.dart';
 
 part 'app_user.freezed.dart';
 part 'app_user.g.dart';
@@ -41,4 +44,17 @@ extension AppUserX on AppUser {
   bool get canApprove => role == UserRole.admin || role == UserRole.manager;
   bool get canPropose => true; // All roles can propose
   bool get hasFinancialAccess => role == UserRole.admin || (role == UserRole.manager && team == UserTeam.netherlands);
+}
+
+/// Roles and teams are stored as bare enum names, which are fine as data but
+/// were being shown to users as-is — "الفريق: gaza". These resolve them
+/// through the translation tables instead.
+extension UserRoleL10n on UserRole {
+  String label(BuildContext context) =>
+      AppLocalizations.of(context, 'role_$name');
+}
+
+extension UserTeamL10n on UserTeam {
+  String label(BuildContext context) =>
+      AppLocalizations.of(context, 'team_$name');
 }

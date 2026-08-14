@@ -2,20 +2,27 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:be_human_app/core/config/app_config.dart';
+import 'package:be_human_app/core/languages/app_localizations.dart';
 
-/// Raised when a file cannot be stored or read back. Carries a message that is
-/// safe to show to the user.
+/// Raised when a file cannot be stored or read back.
+///
+/// Carries a translation key rather than a finished sentence: these are thrown
+/// deep in a service with no BuildContext, and the app is used in three
+/// languages. Call `localized(context)` where the failure is shown.
 class FileStorageException implements Exception {
-  const FileStorageException(this.message);
+  const FileStorageException(this.messageKey, {this.params});
 
-  final String message;
+  final String messageKey;
+  final Map<String, String>? params;
 
+  /// Untranslated, for logs and test names — never for the UI.
   @override
-  String toString() => message;
+  String toString() => messageKey;
 }
 
 /// Stores proposal PDFs in Supabase Storage.
@@ -39,9 +46,7 @@ class FileStorageService {
   SupabaseClient get _requireClient {
     final client = _client;
     if (client == null) {
-      throw const FileStorageException(
-        'خدمة تخزين الملفات غير مُهيّأة في هذه النسخة من التطبيق',
-      );
+      throw const FileStorageException('storage_not_configured');
     }
     return client;
   }
@@ -86,9 +91,9 @@ class FileStorageService {
     try {
       return await _requireClient.storage.from(_bucket).download(path).timeout(_timeout);
     } on TimeoutException {
-      throw const FileStorageException('انتهت مهلة تحميل الملف، تحقق من اتصالك');
+      throw const FileStorageException('download_timeout');
     } on StorageException catch (e) {
-      throw FileStorageException(_describe(e));
+      throw _describe(e);
     }
   }
 
@@ -123,32 +128,32 @@ class FileStorageService {
           .timeout(_timeout);
       return path;
     } on TimeoutException {
-      throw const FileStorageException('انتهت مهلة الرفع، تحقق من اتصالك وحاول مرة أخرى');
+      throw const FileStorageException('upload_timeout');
     } on StorageException catch (e) {
-      throw FileStorageException(_describe(e));
+      throw _describe(e);
     }
   }
 
-  /// Visible for testing the message mapping without a live Supabase.
+  /// Visible for testing the mapping without a live Supabase.
   @visibleForTesting
-  String describeForTest(StorageException e) => _describe(e);
+  FileStorageException describeForTest(StorageException e) => _describe(e);
 
   /// Turns Supabase's terse errors into something the person holding the phone
   /// can act on. "Bucket not found" in particular means a setup step was
   /// missed, not that anything is wrong with the file.
-  String _describe(StorageException e) {
+  FileStorageException _describe(StorageException e) {
     final message = e.message.toLowerCase();
 
     if (message.contains('bucket not found')) {
-      return 'مساحة التخزين "$_bucket" غير موجودة على Supabase — أنشئها من Storage ثم أعد المحاولة';
+      return FileStorageException('bucket_missing', params: {'bucket': _bucket});
     }
     if (message.contains('row-level security') || message.contains('unauthorized')) {
-      return 'لا توجد صلاحية للكتابة في "$_bucket" — تحقق من سياسات Storage';
+      return FileStorageException('storage_no_permission', params: {'bucket': _bucket});
     }
     if (message.contains('exceeded') || message.contains('too large')) {
-      return 'الملف أكبر من الحد المسموح على Supabase';
+      return const FileStorageException('file_too_large_remote');
     }
-    return 'فشل رفع الملف: ${e.message}';
+    return FileStorageException('upload_failed', params: {'error': e.message});
   }
 
   /// Returns a temporary URL for reading [path].
@@ -166,9 +171,9 @@ class FileStorageService {
           .createSignedUrl(path, expiresIn.inSeconds)
           .timeout(_timeout);
     } on TimeoutException {
-      throw const FileStorageException('انتهت مهلة فتح الملف، تحقق من اتصالك');
+      throw const FileStorageException('open_timeout');
     } on StorageException catch (e) {
-      throw FileStorageException(_describe(e));
+      throw _describe(e);
     }
   }
 
@@ -177,9 +182,9 @@ class FileStorageService {
     try {
       await _requireClient.storage.from(_bucket).remove([path]).timeout(_timeout);
     } on TimeoutException {
-      throw const FileStorageException('انتهت مهلة حذف الملف');
+      throw const FileStorageException('delete_timeout');
     } on StorageException catch (e) {
-      throw FileStorageException('فشل حذف الملف: ${e.message}');
+      throw FileStorageException('delete_failed', params: {'error': e.message});
     }
   }
 }
@@ -194,3 +199,11 @@ final supabaseClientProvider = Provider<SupabaseClient?>((ref) {
 final fileStorageServiceProvider = Provider<FileStorageService>((ref) {
   return FileStorageService(client: ref.watch(supabaseClientProvider));
 });
+
+/// Renders a storage failure in the reader's language.
+///
+/// Kept as an extension so the service itself stays free of widget imports.
+extension FileStorageExceptionL10n on FileStorageException {
+  String localized(BuildContext context) =>
+      AppLocalizations.of(context, messageKey, params);
+}

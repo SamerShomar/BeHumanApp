@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
+import 'package:be_human_app/core/languages/app_localizations.dart';
 import 'package:be_human_app/core/services/file_storage_service.dart';
 
 /// Shows a proposal PDF stored in Supabase.
@@ -38,7 +39,7 @@ class _PdfViewerWidgetState extends ConsumerState<PdfViewerWidget> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title ?? 'عرض PDF'),
+        title: Text(widget.title ?? AppLocalizations.of(context, 'view_pdf')),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
       ),

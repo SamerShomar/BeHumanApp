@@ -70,11 +70,11 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
           children: [
             Row(
               children: [
-                Expanded(child: _balanceCard('الرصيد', finances['balance'] ?? 0, Colors.blue)),
+                Expanded(child: _balanceCard(AppLocalizations.of(context, 'balance'), finances['balance'] ?? 0, Colors.blue)),
                 const SizedBox(width: 8),
-                Expanded(child: _balanceCard('الوارد', finances['totalIncome'] ?? 0, Colors.green)),
+                Expanded(child: _balanceCard(AppLocalizations.of(context, 'incoming'), finances['totalIncome'] ?? 0, Colors.green)),
                 const SizedBox(width: 8),
-                Expanded(child: _balanceCard('الصادر', finances['totalExpense'] ?? 0, Colors.red)),
+                Expanded(child: _balanceCard(AppLocalizations.of(context, 'outgoing'), finances['totalExpense'] ?? 0, Colors.red)),
               ],
             ),
             const SizedBox(height: 12),
@@ -254,7 +254,9 @@ class _AddTransactionDialogState extends ConsumerState<_AddTransactionDialog> {
 
     final amount = double.tryParse(_amountCtrl.text);
     if (amount == null || amount <= 0) {
-      messenger.showSnackBar(const SnackBar(content: Text('أدخل مبلغاً صحيحاً')));
+      messenger.showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context, 'invalid_amount'))),
+      );
       return;
     }
 
@@ -285,15 +287,17 @@ class _AddTransactionDialogState extends ConsumerState<_AddTransactionDialog> {
 
       navigator.pop();
       messenger.showSnackBar(
-        const SnackBar(content: Text('تم إضافة الحركة المالية بنجاح')),
+        SnackBar(content: Text(AppLocalizations.of(context, 'transaction_added'))),
       );
     } on FileStorageException catch (e) {
       if (mounted) setState(() => _isSaving = false);
-      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      messenger.showSnackBar(SnackBar(content: Text(e.localized(context))));
     } catch (e) {
       if (mounted) setState(() => _isSaving = false);
       messenger.showSnackBar(
-        SnackBar(content: Text('فشل إضافة الحركة المالية: ${e.toString()}')),
+        SnackBar(content: Text(AppLocalizations.of(
+          context, 'transaction_add_failed', {'error': e.toString()},
+        ))),
       );
     }
   }

@@ -72,5 +72,28 @@ void main() {
         }
       });
     }
+
+    // Every key the app looks up must exist in all three tables. Without this,
+    // a key added to English only falls back silently and the other languages
+    // show English — which is exactly how the app drifted before.
+    for (final locale in AppLocalizations.supportedLocales) {
+      test('${locale.languageCode} covers every key defined in English', () {
+        final missing = <String>[];
+        for (final key in AppLocalizations.keysFor(const Locale('en'))) {
+          if (!AppLocalizations.keysFor(locale).contains(key)) missing.add(key);
+        }
+        expect(missing, isEmpty, reason: 'Untranslated in ${locale.languageCode}: $missing');
+      });
+    }
+
+    test('roles and teams have a label in every language', () {
+      // These are stored as bare enum names and were shown raw before.
+      for (final locale in AppLocalizations.supportedLocales) {
+        for (final key in ['role_admin', 'role_manager', 'role_member',
+                           'team_gaza', 'team_netherlands']) {
+          expect(AppLocalizations.translate(locale, key), isNot(key));
+        }
+      }
+    });
   });
 }

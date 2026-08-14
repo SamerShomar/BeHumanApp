@@ -38,7 +38,7 @@ Future<void> downloadArchiveFile(
     await Share.shareXFiles([XFile(file.path)]);
   } on FileStorageException catch (e) {
     messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    messenger.showSnackBar(SnackBar(content: Text(e.localized(context))));
   } catch (e) {
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(

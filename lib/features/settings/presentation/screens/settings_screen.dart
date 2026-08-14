@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:be_human_app/core/languages/app_localizations.dart';
+import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:be_human_app/core/providers/theme_provider.dart';
 import 'package:be_human_app/features/auth/presentation/widgets/avatar_picker.dart';
@@ -43,9 +44,9 @@ class SettingsScreen extends ConsumerWidget {
                           SizedBox(height: 6.h),
                           Text(user?.email ?? '', style: theme.textTheme.bodyMedium),
                           SizedBox(height: 6.h),
-                          Text('${AppLocalizations.of(context, 'team_label')}: ${user?.team.name ?? ''}', style: theme.textTheme.bodyMedium),
+                          Text('${AppLocalizations.of(context, 'team_label')}: ${user == null ? '' : user.team.label(context)}', style: theme.textTheme.bodyMedium),
                           SizedBox(height: 6.h),
-                          Text('${AppLocalizations.of(context, 'role_label')}: ${user?.role.name ?? ''}', style: theme.textTheme.bodyMedium),
+                          Text('${AppLocalizations.of(context, 'role_label')}: ${user == null ? '' : user.role.label(context)}', style: theme.textTheme.bodyMedium),
                         ],
                       ),
                     ),
@@ -100,7 +101,11 @@ class SettingsScreen extends ConsumerWidget {
                   router.go('/login');
                 } catch (e) {
                   messenger.showSnackBar(
-                    SnackBar(content: Text('خطأ في تسجيل الخروج: ${e.toString()}')),
+                    SnackBar(
+                      content: Text(AppLocalizations.of(
+                        context, 'logout_error', {'error': e.toString()},
+                      )),
+                    ),
                   );
                 }
               },
@@ -159,7 +164,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
       // A wrong current password surfaces as a failed re-authentication.
       final message = switch (e.code) {
         'wrong-password' || 'invalid-credential' => invalidMessage,
-        'weak-password' => 'كلمة المرور الجديدة ضعيفة (6 أحرف على الأقل)',
+        'weak-password' => AppLocalizations.of(context, 'weak_password'),
         _ => e.message ?? invalidMessage,
       };
       if (mounted) {

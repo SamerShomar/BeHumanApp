@@ -50,9 +50,9 @@ void main() {
       );
     });
 
-    test('the exception message is human readable, not a stack trace', () {
-      const exception = FileStorageException('فشل رفع الملف');
-      expect(exception.toString(), 'فشل رفع الملف');
+    test('toString exposes the key, for logs rather than the UI', () {
+      const exception = FileStorageException('upload_failed');
+      expect(exception.toString(), 'upload_failed');
     });
   });
 
@@ -61,25 +61,28 @@ void main() {
     // wording straight through leaves the user with nothing to act on.
     final service = FileStorageService(client: null, bucket: 'proposals');
 
-    String describe(String supabaseMessage) => service.describeForTest(
-          StorageException(supabaseMessage, statusCode: '400'),
-        );
+    FileStorageException describe(String supabaseMessage) =>
+        service.describeForTest(StorageException(supabaseMessage, statusCode: '400'));
 
-    test('names the missing bucket and what to do about it', () {
-      final message = describe('Bucket not found');
-      expect(message, contains('proposals'));
-      expect(message, contains('Storage'));
+    test('names the missing bucket, carrying it as a parameter', () {
+      // The key is translated at the point of display, so the bucket name
+      // travels alongside it rather than baked into a sentence.
+      final failure = describe('Bucket not found');
+      expect(failure.messageKey, 'bucket_missing');
+      expect(failure.params?['bucket'], 'proposals');
     });
 
     test('points at policies when the write is refused', () {
       expect(
-        describe('new row violates row-level security policy'),
-        contains('صلاحية'),
+        describe('new row violates row-level security policy').messageKey,
+        'storage_no_permission',
       );
     });
 
-    test('falls back to the original wording for anything unrecognised', () {
-      expect(describe('some novel failure'), contains('some novel failure'));
+    test('passes an unrecognised failure through as a parameter', () {
+      final failure = describe('some novel failure');
+      expect(failure.messageKey, 'upload_failed');
+      expect(failure.params?['error'], 'some novel failure');
     });
   });
 }

@@ -123,11 +123,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
-            Text('حدث خطأ: ${state.error.toString()}'),
+            Text(AppLocalizations.of(
+              context, 'router_error', {'error': state.error.toString()},
+            )),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => context.go('/login'),
-              child: const Text('العودة لتسجيل الدخول'),
+              child: Text(AppLocalizations.of(context, 'back_to_login')),
             ),
           ],
         ),

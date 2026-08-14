@@ -18,7 +18,10 @@ class AdminDashboardScreen extends ConsumerWidget {
     if (user == null || !user.isAdmin) {
       return Scaffold(
         body: Center(
-          child: Text('ليس لديك صلاحية', style: Theme.of(context).textTheme.titleLarge),
+          child: Text(
+            AppLocalizations.of(context, 'no_permission'),
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
         ),
       );
     }
@@ -37,15 +40,17 @@ class AdminDashboardScreen extends ConsumerWidget {
               onPressed: () async {
                 final scraper = ref.read(websiteScraperProvider);
                 final snack = ScaffoldMessenger.of(context);
+                final contentUpdated = AppLocalizations.of(context, 'content_updated');
+                final contentUpdateFailed = AppLocalizations.of(context, 'content_update_failed');
                 try {
                   final data = await scraper.fetch();
                   ref.read(aboutProvider.notifier).setAll(data);
-                  snack.showSnackBar(const SnackBar(content: Text('تم تحديث المحتوى من الموقع')));
+                  snack.showSnackBar(SnackBar(content: Text(contentUpdated)));
                 } catch (e) {
-                  snack.showSnackBar(const SnackBar(content: Text('فشل سحب المحتوى، تم استخدام نصوص بديلة')));
+                  snack.showSnackBar(SnackBar(content: Text(contentUpdateFailed)));
                 }
               },
-              child: const Text('سحب محتوى الموقع'),
+              child: Text(AppLocalizations.of(context, 'pull_website_action')),
             ),
           ),
         ],
@@ -82,14 +87,14 @@ class AdminDashboardScreen extends ConsumerWidget {
                 Text(AppLocalizations.of(context, 'proposals'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ElevatedButton(
                   onPressed: () => _showAddProposalDialog(context, ref),
-                  child: const Text('إضافة مقترح جديد'),
+                  child: Text(AppLocalizations.of(context, 'add_proposal_new')),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             ...proposals.value?.map((p) => ListTile(
                   title: Text(p['title'] ?? ''),
-                  subtitle: Text('${p['status'] ?? ''} • ${p['date'] ?? ''}'),
+                  subtitle: Text('${ProposalStatus.label(context, p['status'])} • ${p['date'] ?? ''}'),
                   trailing: Text('${p['amount'] ?? ''}'),
                 )) ?? [],
 
@@ -102,7 +107,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                 Text(AppLocalizations.of(context, 'financial'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ElevatedButton(
                   onPressed: () => _showAddTransactionDialog(context, ref),
-                  child: const Text('إضافة حركة وارد/صادر'),
+                  child: Text(AppLocalizations.of(context, 'add_movement')),
                 ),
               ],
             ),
@@ -113,9 +118,9 @@ class AdminDashboardScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('الإيرادات: ${finances['totalIncome'] ?? 0}'),
-                    Text('المصروفات: ${finances['totalExpense'] ?? 0}'),
-                    Text('الرصيد: ${finances['balance'] ?? 0}'),
+                    Text('${AppLocalizations.of(context, 'revenues')}: ${finances['totalIncome'] ?? 0}'),
+                    Text('${AppLocalizations.of(context, 'expenses')}: ${finances['totalExpense'] ?? 0}'),
+                    Text('${AppLocalizations.of(context, 'balance')}: ${finances['balance'] ?? 0}'),
                   ],
                 ),
               ),
@@ -153,17 +158,17 @@ class AdminDashboardScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('إضافة مقترح جديد'),
+        title: Text(AppLocalizations.of(context, 'add_proposal_new')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'العنوان')),
-            TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'الوصف')),
-            TextField(controller: amountCtrl, decoration: const InputDecoration(labelText: 'المبلغ'), keyboardType: TextInputType.number),
+            TextField(controller: titleCtrl, decoration: InputDecoration(labelText: AppLocalizations.of(context, 'title_label'))),
+            TextField(controller: descCtrl, decoration: InputDecoration(labelText: AppLocalizations.of(context, 'description_label'))),
+            TextField(controller: amountCtrl, decoration: InputDecoration(labelText: AppLocalizations.of(context, 'amount_label')), keyboardType: TextInputType.number),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(AppLocalizations.of(context, 'cancel'))),
           ElevatedButton(
             onPressed: () async {
               final id = 'p${DateTime.now().millisecondsSinceEpoch}';
@@ -181,14 +186,16 @@ class AdminDashboardScreen extends ConsumerWidget {
                 final adminService = ref.read(firestoreAdminServiceProvider);
                 await adminService.addProposal(proposal);
                 Navigator.of(ctx).pop();
-                ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('تم إضافة المقترح بنجاح')));
+                ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context, 'proposal_added'))));
               } catch (e) {
                 ScaffoldMessenger.of(ctx).showSnackBar(
-                  SnackBar(content: Text('فشل إضافة المقترح: ${e.toString()}')),
+                  SnackBar(content: Text(AppLocalizations.of(
+                    context, 'proposal_add_failed', {'error': e.toString()},
+                  ))),
                 );
               }
             },
-            child: const Text('حفظ'),
+            child: Text(AppLocalizations.of(context, 'save')),
           ),
         ],
       ),
@@ -203,25 +210,25 @@ class AdminDashboardScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('إضافة حركة مالية'),
+        title: Text(AppLocalizations.of(context, 'add_financial')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             DropdownButtonFormField<String>(
               initialValue: type,
-              items: const [
-                DropdownMenuItem(value: 'income', child: Text('وارد')),
-                DropdownMenuItem(value: 'expense', child: Text('صادر')),
+              items: [
+                DropdownMenuItem(value: 'income', child: Text(AppLocalizations.of(context, 'income_label'))),
+                DropdownMenuItem(value: 'expense', child: Text(AppLocalizations.of(context, 'expense_label'))),
               ],
               onChanged: (v) => type = v ?? 'income',
-              decoration: const InputDecoration(labelText: 'النوع'),
+              decoration: InputDecoration(labelText: AppLocalizations.of(context, 'type_label')),
             ),
-            TextField(controller: amountCtrl, decoration: const InputDecoration(labelText: 'المبلغ'), keyboardType: TextInputType.number),
-            TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'الوصف')),
+            TextField(controller: amountCtrl, decoration: InputDecoration(labelText: AppLocalizations.of(context, 'amount_label')), keyboardType: TextInputType.number),
+            TextField(controller: descCtrl, decoration: InputDecoration(labelText: AppLocalizations.of(context, 'description_label'))),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(AppLocalizations.of(context, 'cancel'))),
           ElevatedButton(
             onPressed: () async {
               final amount = double.tryParse(amountCtrl.text) ?? 0.0;
@@ -238,14 +245,16 @@ class AdminDashboardScreen extends ConsumerWidget {
                 final adminService = ref.read(firestoreAdminServiceProvider);
                 await adminService.addTransaction(transaction);
                 Navigator.of(ctx).pop();
-                ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('تم إضافة الحركة المالية بنجاح')));
+                ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context, 'transaction_added'))));
               } catch (e) {
                 ScaffoldMessenger.of(ctx).showSnackBar(
-                  SnackBar(content: Text('فشل إضافة الحركة المالية: ${e.toString()}')),
+                  SnackBar(content: Text(AppLocalizations.of(
+                    context, 'transaction_add_failed', {'error': e.toString()},
+                  ))),
                 );
               }
             },
-            child: const Text('حفظ'),
+            child: Text(AppLocalizations.of(context, 'save')),
           ),
         ],
       ),
@@ -272,7 +281,7 @@ class _MemberTile extends ConsumerWidget {
     return Card(
       child: ListTile(
         title: Text(member.name),
-        subtitle: Text('${member.email} • ${member.team.name}'),
+        subtitle: Text('${member.email} • ${member.team.label(context)}'),
         trailing: DropdownButton<UserRole>(
           value: member.role,
           onChanged: isSelf
@@ -294,7 +303,7 @@ class _MemberTile extends ConsumerWidget {
                 },
           items: [
             for (final role in UserRole.values)
-              DropdownMenuItem(value: role, child: Text(role.name)),
+              DropdownMenuItem(value: role, child: Text(role.label(context))),
           ],
         ),
       ),

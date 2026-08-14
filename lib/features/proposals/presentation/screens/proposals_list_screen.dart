@@ -83,13 +83,15 @@ class ProposalsListScreen extends ConsumerWidget {
         (file.path != null ? await File(file.path!).readAsBytes() : null);
 
     if (bytes == null) {
-      messenger.showSnackBar(const SnackBar(content: Text('لم يتم تحميل الملف')));
+      messenger.showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context, 'file_not_loaded'))),
+      );
       return;
     }
 
     if (bytes.lengthInBytes > _maxPdfBytes) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('الملف كبير جداً، الحد الأقصى 25 ميغابايت')),
+        SnackBar(content: Text(AppLocalizations.of(context, 'file_too_large'))),
       );
       return;
     }
@@ -139,10 +141,12 @@ class ProposalsListScreen extends ConsumerWidget {
 
       messenger.showSnackBar(SnackBar(content: Text(addedMessage)));
     } on FileStorageException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      messenger.showSnackBar(SnackBar(content: Text(e.localized(context))));
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('فشل إضافة المقترح: ${e.toString()}')),
+        SnackBar(content: Text(AppLocalizations.of(
+          context, 'proposal_add_failed', {'error': e.toString()},
+        ))),
       );
     } finally {
       // In `finally` so an unexpected failure cannot strand the dialog.
@@ -193,7 +197,7 @@ class ProposalsListScreen extends ConsumerWidget {
                       ),
                     );
                   },
-                  child: const Text('عرض الـ PDF'),
+                  child: Text(AppLocalizations.of(context, 'view_pdf')),
                 ),
               ],
             ],
@@ -214,14 +218,14 @@ class ProposalsListScreen extends ConsumerWidget {
                 status: ProposalStatus.accepted,
                 label: AppLocalizations.of(context, 'approve'),
                 color: Colors.green,
-                failureMessage: 'فشل الموافقة',
+                failureMessage: AppLocalizations.of(context, 'approve_failed'),
               ),
               _StatusButton(
                 proposalId: p['id'] as String,
                 status: ProposalStatus.rejected,
                 label: AppLocalizations.of(context, 'reject'),
                 color: Colors.red,
-                failureMessage: 'فشل الرفض',
+                failureMessage: AppLocalizations.of(context, 'reject_failed'),
               ),
             ],
           ],

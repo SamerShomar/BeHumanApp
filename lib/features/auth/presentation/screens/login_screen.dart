@@ -34,7 +34,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     if (email.isEmpty || password.isEmpty) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('البريد الإلكتروني وكلمة المرور مطلوبة')),
+        SnackBar(content: Text(AppLocalizations.of(context, 'email_password_required'))),
       );
       return;
     }
@@ -70,10 +70,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       // Firebase returns `invalid-credential` instead of `wrong-password` when
       // email-enumeration protection is enabled, so both map to one message.
       final message = switch (e.code) {
-        'user-not-found' => 'البريد الإلكتروني غير مسجل',
-        'wrong-password' || 'invalid-credential' => 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
-        'too-many-requests' => 'تم حظر المحاولات مؤقتاً، حاول لاحقاً',
-        _ => 'خطأ في تسجيل الدخول: ${e.message}',
+        'user-not-found' => AppLocalizations.of(context, 'email_not_registered'),
+        'wrong-password' || 'invalid-credential' =>
+          AppLocalizations.of(context, 'credentials_invalid'),
+        'too-many-requests' => AppLocalizations.of(context, 'too_many_requests'),
+        _ => AppLocalizations.of(context, 'login_error', {'error': e.message ?? ''}),
       };
       messenger.showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
@@ -83,7 +84,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         });
       }
       messenger.showSnackBar(
-        const SnackBar(content: Text('فشل تسجيل الدخول، حاول مرة أخرى')),
+        SnackBar(content: Text(AppLocalizations.of(context, 'login_failed_retry'))),
       );
     }
   }
@@ -108,7 +109,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       messenger.showSnackBar(SnackBar(content: Text(sentMessage)));
     } on FirebaseAuthException catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text(e.message ?? 'تعذّر إرسال رسالة الاستعادة')),
+        SnackBar(content: Text(e.message ?? AppLocalizations.of(context, 'reset_failed'))),
       );
     }
   }

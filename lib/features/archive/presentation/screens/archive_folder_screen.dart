@@ -97,9 +97,23 @@ class ArchiveFolderScreen extends ConsumerWidget {
     final user = ref.read(currentUserStreamProvider).valueOrNull;
     if (user == null) return;
 
-    final result = await FilePicker.platform.pickFiles(withData: true);
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
     if (result == null || result.files.isEmpty) return;
     final file = result.files.first;
+
+    // The picker filter is a hint the platform may not honour — some file
+    // managers let any type through — so the extension is checked here too.
+    if (!looksLikePdf(file.name)) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context, 'archive_pdf_only'))),
+      );
+      return;
+    }
+
     final bytes = file.bytes;
     if (bytes == null) return;
 
@@ -127,7 +141,8 @@ class _EntryTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    final canPreview = entry.isOpenable && looksLikePdf(entry.fileName);
+    // Only PDFs are ever stored, so anything with a file can be previewed.
+    final canPreview = entry.isOpenable;
 
     return Card(
       child: ListTile(

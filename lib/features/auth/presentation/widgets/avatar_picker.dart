@@ -59,7 +59,7 @@ class _AvatarPickerState extends ConsumerState<AvatarPicker> {
 
       messenger.showSnackBar(SnackBar(content: Text(updatedMessage)));
     } on FileStorageException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      messenger.showSnackBar(SnackBar(content: Text(e.localized(context))));
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(content: Text('${AppLocalizations.of(context, 'error_generic')}: $e')),
