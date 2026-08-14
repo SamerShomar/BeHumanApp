@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:be_human_app/core/theme/app_theme.dart';
+import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:be_human_app/features/no_internet/presentation/screens/no_internet_screen.dart';
 import 'package:be_human_app/features/splash/presentation/screens/splash_screen.dart';
 
@@ -83,6 +84,9 @@ void main() {
     );
 
     return ProviderScope(
+      // The splash asks whether a session exists; without this it would
+      // reach for FirebaseAuth.instance, which does not exist in a test.
+      overrides: [isSignedInProvider.overrideWithValue(false)],
       child: ScreenUtilInit(
         designSize: const Size(390, 844),
         minTextAdapt: true,
