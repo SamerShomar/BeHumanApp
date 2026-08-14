@@ -14,11 +14,19 @@ import 'package:be_human_app/core/theme/app_theme.dart';
 import 'package:be_human_app/features/no_internet/presentation/screens/no_internet_screen.dart';
 import 'package:be_human_app/features/splash/presentation/screens/splash_screen.dart';
 
-/// Renders the launch screens so their layout can be reviewed as an image, and
-/// checks that the splash routes on connectivity rather than unconditionally.
+/// Renders the launch screens so their layout can be reviewed as an image.
 ///
-/// Regenerate the images with:
-///   flutter test --update-goldens --tags golden test/screens_golden_test.dart
+/// Golden images are rasterised with the fonts installed on the machine that
+/// produced them. The committed images were generated on Linux, so these tests
+/// skip elsewhere rather than failing on font differences that say nothing
+/// about the app — Windows showed a 21% pixel diff on the text-heavy screen.
+///
+/// Regenerate after a design change, on Linux:
+///
+///   flutter test --update-goldens test/screens_golden_test.dart
+///
+/// The routing behaviour these exercised incidentally is covered, platform
+/// independently, by splash_routing_test.dart.
 void main() {
   setUpAll(() async {
     // Without real fonts every glyph is an opaque square and every icon an
@@ -95,29 +103,6 @@ void main() {
     addTearDown(tester.view.reset);
   }
 
-  group('splash routing', () {
-    testWidgets('goes to login when online', (tester) async {
-      useDeviceViewport(tester);
-      mockConnectivity(online: true);
-
-      await tester.pumpWidget(wrap(const SplashScreen(), dark: true));
-      await tester.pumpAndSettle(const Duration(seconds: 3));
-
-      expect(find.text('LOGIN'), findsOneWidget);
-    });
-
-    testWidgets('goes to the offline screen when there is no connection',
-        (tester) async {
-      useDeviceViewport(tester);
-      mockConnectivity(online: false);
-
-      await tester.pumpWidget(wrap(const SplashScreen(), dark: true));
-      await tester.pumpAndSettle(const Duration(seconds: 3));
-
-      expect(find.text('OFFLINE'), findsOneWidget);
-    });
-  });
-
   for (final dark in [true, false]) {
     final mode = dark ? 'dark' : 'light';
 
@@ -145,7 +130,7 @@ void main() {
 
       // Let the pending navigation timer run out so the test ends clean.
       await tester.pumpAndSettle(const Duration(seconds: 3));
-    });
+    }, skip: !Platform.isLinux);
 
     testWidgets('no-internet renders ($mode)', (tester) async {
       useDeviceViewport(tester);
@@ -158,6 +143,6 @@ void main() {
         find.byType(NoInternetScreen),
         matchesGoldenFile('goldens/no_internet_$mode.png'),
       );
-    });
+    }, skip: !Platform.isLinux);
   }
 }

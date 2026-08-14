@@ -1,0 +1,5 @@
+# Declares the `golden` tag so using it does not warn. The golden tests
+# themselves skip on any platform other than the one their images were
+# rasterised on — see the note in test/screens_golden_test.dart.
+tags:
+  golden:
