@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,17 +9,65 @@ import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 final firebaseAuthProvider = Provider<FirebaseAuth>((ref) => FirebaseAuth.instance);
 final firebaseFirestoreProvider = Provider<FirebaseFirestore>((ref) => FirebaseFirestore.instance);
 
+/// Whether a session exists right now, without waiting on the profile
+/// document. Exposed as a provider so callers — and tests — do not have to
+/// reach for FirebaseAuth.instance directly.
+final isSignedInProvider = Provider<bool>(
+  (ref) => ref.watch(firebaseAuthProvider).currentUser != null,
+);
+
+/// The signed-in user's profile, kept live.
+///
+/// Follows the Firestore document rather than reading it once per sign-in.
+/// With a one-shot read, nothing written to the profile afterwards ever
+/// reached the UI: a new avatar stayed invisible and a role changed from the
+/// admin dashboard did not take effect until the user signed in again.
 final currentUserStreamProvider = StreamProvider<AppUser?>((ref) {
   final auth = ref.watch(firebaseAuthProvider);
   final firestore = ref.watch(firebaseFirestoreProvider);
 
-  return auth.authStateChanges().asyncMap((user) async {
-    if (user == null) return null;
+  final controller = StreamController<AppUser?>();
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? profileSub;
 
-    final doc = await firestore.collection('users').doc(user.uid).get();
-    if (!doc.exists || doc.data() == null) return null;
-    return AppUser.fromJson(doc.data()!);
+  final authSub = auth.authStateChanges().listen((user) {
+    // Drop the previous user's document listener before attaching the next.
+    // asyncExpand would not do this: a Firestore snapshot stream never
+    // completes, so a sign-out would queue behind it forever.
+    profileSub?.cancel();
+    profileSub = null;
+
+    if (user == null) {
+      controller.add(null);
+      return;
+    }
+
+    profileSub = firestore.collection('users').doc(user.uid).snapshots().listen(
+      (doc) {
+        final data = doc.data();
+        if (data == null) {
+          controller.add(null);
+          return;
+        }
+        try {
+          controller.add(AppUser.fromJson(data));
+        } catch (error, stackTrace) {
+          // A malformed profile — a role saved as 'UserRole.admin' instead of
+          // 'admin', say — should surface as an error rather than a silent
+          // signed-out state.
+          controller.addError(error, stackTrace);
+        }
+      },
+      onError: controller.addError,
+    );
   });
+
+  ref.onDispose(() {
+    profileSub?.cancel();
+    authSub.cancel();
+    controller.close();
+  });
+
+  return controller.stream;
 });
 
 // Remove manual StateProvider as we use the StreamProvider for real-time updates

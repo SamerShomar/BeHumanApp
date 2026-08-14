@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:be_human_app/core/theme/app_theme.dart';
+import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:be_human_app/features/splash/presentation/screens/splash_screen.dart';
 
 /// The splash screen decides where the app starts. These checks are pixel
@@ -29,17 +30,19 @@ void main() {
 
   /// Stub destinations, so the screen's real `context.go` resolves instead of
   /// throwing and leaving a timer pending.
-  Widget wrap(Widget child) {
+  Widget wrap(Widget child, {bool signedIn = false}) {
     final router = GoRouter(
       initialLocation: '/',
       routes: [
         GoRoute(path: '/', builder: (_, __) => child),
         GoRoute(path: '/login', builder: (_, __) => const Text('LOGIN')),
         GoRoute(path: '/no-internet', builder: (_, __) => const Text('OFFLINE')),
+        GoRoute(path: '/home', builder: (_, __) => const Text('HOME')),
       ],
     );
 
     return ProviderScope(
+      overrides: [isSignedInProvider.overrideWithValue(signedIn)],
       child: ScreenUtilInit(
         designSize: const Size(390, 844),
         minTextAdapt: true,
@@ -51,6 +54,18 @@ void main() {
       ),
     );
   }
+
+  testWidgets('an already-signed-in user goes straight to the app, even offline',
+      (tester) async {
+    // Firestore serves reads from its cache and queues writes, so being
+    // offline must not block someone who is already authenticated.
+    mockConnectivity(online: false);
+
+    await tester.pumpWidget(wrap(const SplashScreen(), signedIn: true));
+    await tester.pumpAndSettle(const Duration(seconds: 3));
+
+    expect(find.text('HOME'), findsOneWidget);
+  });
 
   testWidgets('goes to login when online', (tester) async {
     mockConnectivity(online: true);

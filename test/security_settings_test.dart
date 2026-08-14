@@ -3,11 +3,10 @@ import 'package:be_human_app/core/security/security_settings.dart';
 
 void main() {
   group('SecuritySettings', () {
-    test('the offline cache stays disabled', () {
-      // Firestore's on-disk cache is unencrypted, so enabling it puts every
-      // viewed proposal and transaction in plaintext on the device. Flipping
-      // this is a deliberate decision, not an incidental edit.
-      expect(SecuritySettings.allowOfflineCache, isFalse);
+    test('the offline cache is on, so writes queue through an outage', () {
+      // Turning this off would restore on-disk secrecy but break working
+      // offline, which the app is required to do.
+      expect(SecuritySettings.allowOfflineCache, isTrue);
     });
 
     test('the inactivity timeout is short enough to matter', () {

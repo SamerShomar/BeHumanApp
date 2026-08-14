@@ -11,15 +11,16 @@ class SecuritySettings {
 
   /// Whether Firestore may keep a local copy of documents on disk.
   ///
-  /// Firestore's offline cache is an unencrypted SQLite file. With it enabled,
-  /// every proposal and financial record the user has viewed stays readable on
-  /// the device even without the account password.
+  /// Enabled deliberately: the app has to work through the connection outages
+  /// its users live with, and Firestore's cache is what makes reads succeed and
+  /// writes queue until the network returns.
   ///
-  /// The trade-off is real: with this off the app needs a live connection for
-  /// every read and will not work offline. That is deliberate for financial and
-  /// beneficiary data. Flip this to `true` only if working offline matters more
-  /// than a seized device staying unreadable.
-  static const bool allowOfflineCache = false;
+  /// The cost is that the cache is an unencrypted SQLite file, so every
+  /// proposal and transaction the user has viewed stays readable on the device
+  /// without the account password. Sign-out clears it, `FLAG_SECURE` still
+  /// blocks screenshots, and the device's own lock screen carries the rest.
+  /// Set to `false` to keep nothing on disk, at the cost of offline use.
+  static const bool allowOfflineCache = true;
 
   /// How long the app may sit untouched before signing the user out.
   static const Duration inactivityTimeout = Duration(minutes: 10);
@@ -41,6 +42,9 @@ class SecuritySettings {
   static Future<void> apply() async {
     FirebaseFirestore.instance.settings = const Settings(
       persistenceEnabled: allowOfflineCache,
+      // Writes made offline sit in this cache until the network returns, so it
+      // must not evict them during a long outage.
+      cacheSizeBytes: allowOfflineCache ? Settings.CACHE_SIZE_UNLIMITED : null,
     );
 
     if (requireLoginOnLaunch) {

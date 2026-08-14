@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:be_human_app/core/languages/app_localizations.dart';
 import 'package:be_human_app/core/utils/connectivity.dart';
+import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 
 /// Branded launch screen.
 ///
@@ -70,7 +71,17 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     if (!mounted) return;
 
     final isOnline = results.first as bool;
-    context.go(isOnline ? '/login' : '/no-internet');
+    final isSignedIn = ref.read(isSignedInProvider);
+
+    // An already-signed-in user can keep working offline: Firestore serves
+    // reads from its cache and queues writes until the network returns. Only
+    // someone who still has to authenticate is actually blocked, since that
+    // round-trip cannot be cached.
+    if (isSignedIn) {
+      context.go('/home');
+    } else {
+      context.go(isOnline ? '/login' : '/no-internet');
+    }
   }
 
   @override
