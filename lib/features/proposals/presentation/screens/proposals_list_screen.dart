@@ -61,8 +61,12 @@ class ProposalsListScreen extends ConsumerWidget {
 
   Future<void> _pickPdfAndAdd(BuildContext context, WidgetRef ref, AppUser user) async {
     final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
     final addedMessage = AppLocalizations.of(context, 'proposal_added');
+
+    // This screen sits inside a ShellRoute, which has its own Navigator, while
+    // showDialog pushes onto the root one. Popping the wrong navigator closed
+    // the screen and left the dialog up — a black screen that never returned.
+    final dialogNavigator = Navigator.of(context, rootNavigator: true);
 
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -92,7 +96,24 @@ class ProposalsListScreen extends ConsumerWidget {
     showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
+      builder: (_) => PopScope(
+        canPop: false,
+        child: Center(
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text(AppLocalizations.of(context, 'uploading')),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
 
     final id = 'p${DateTime.now().millisecondsSinceEpoch}';
@@ -115,16 +136,16 @@ class ProposalsListScreen extends ConsumerWidget {
         'submittedByName': user.name,
       });
 
-      navigator.pop();
       messenger.showSnackBar(SnackBar(content: Text(addedMessage)));
     } on FileStorageException catch (e) {
-      navigator.pop();
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
     } catch (e) {
-      navigator.pop();
       messenger.showSnackBar(
         SnackBar(content: Text('فشل إضافة المقترح: ${e.toString()}')),
       );
+    } finally {
+      // In `finally` so an unexpected failure cannot strand the dialog.
+      dialogNavigator.pop();
     }
   }
 

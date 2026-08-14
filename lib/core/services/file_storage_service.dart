@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,6 +29,11 @@ class FileStorageService {
 
   final SupabaseClient? _client;
   final String _bucket;
+
+  /// Ceiling on any single storage call. Without it a stalled connection —
+  /// common on the networks this app runs over — leaves the upload spinner
+  /// on screen with no way out.
+  static const _timeout = Duration(seconds: 60);
 
   SupabaseClient get _requireClient {
     final client = _client;
@@ -77,15 +83,20 @@ class FileStorageService {
     String contentType = 'application/pdf',
   }) async {
     try {
-      await _requireClient.storage.from(_bucket).uploadBinary(
+      await _requireClient.storage
+          .from(_bucket)
+          .uploadBinary(
             path,
             bytes,
             fileOptions: FileOptions(
               contentType: contentType,
               upsert: true,
             ),
-          );
+          )
+          .timeout(_timeout);
       return path;
+    } on TimeoutException {
+      throw const FileStorageException('انتهت مهلة الرفع، تحقق من اتصالك وحاول مرة أخرى');
     } on StorageException catch (e) {
       throw FileStorageException('فشل رفع الملف: ${e.message}');
     }
@@ -103,7 +114,10 @@ class FileStorageService {
     try {
       return await _requireClient.storage
           .from(_bucket)
-          .createSignedUrl(path, expiresIn.inSeconds);
+          .createSignedUrl(path, expiresIn.inSeconds)
+          .timeout(_timeout);
+    } on TimeoutException {
+      throw const FileStorageException('انتهت مهلة فتح الملف، تحقق من اتصالك');
     } on StorageException catch (e) {
       throw FileStorageException('فشل فتح الملف: ${e.message}');
     }
@@ -112,7 +126,9 @@ class FileStorageService {
   /// Removes a stored object, whatever kind it is.
   Future<void> deleteFile(String path) async {
     try {
-      await _requireClient.storage.from(_bucket).remove([path]);
+      await _requireClient.storage.from(_bucket).remove([path]).timeout(_timeout);
+    } on TimeoutException {
+      throw const FileStorageException('انتهت مهلة حذف الملف');
     } on StorageException catch (e) {
       throw FileStorageException('فشل حذف الملف: ${e.message}');
     }

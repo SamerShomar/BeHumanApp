@@ -15,6 +15,7 @@ class AppLocalizations {
   static final Map<String, Map<String, String>> _translations = {
     'en': {
       'app_title': 'Be Human Foundation',
+      'uploading': 'Uploading…',
       'change_photo': 'Change profile picture',
       'choose_from_gallery': 'Choose from gallery',
       'take_photo': 'Take a photo',
@@ -113,6 +114,7 @@ class AppLocalizations {
     },
     'ar': {
       'app_title': 'مؤسسة بي هيومان',
+      'uploading': 'جارٍ الرفع…',
       'change_photo': 'تغيير صورة الملف الشخصي',
       'choose_from_gallery': 'اختيار من المعرض',
       'take_photo': 'التقاط صورة',
@@ -211,6 +213,7 @@ class AppLocalizations {
     },
     'nl': {
       'app_title': 'Be Human Foundation',
+      'uploading': 'Uploaden…',
       'change_photo': 'Profielfoto wijzigen',
       'choose_from_gallery': 'Kies uit galerij',
       'take_photo': 'Foto maken',
