@@ -80,4 +80,18 @@ void main() {
       }
     }
   });
+
+  test('the page declares the images it draws, so they can be precached', () {
+    // The rasteriser paints in a single synchronous pass, so an asset that is
+    // not already decoded paints as nothing — silently. The stamp was missing
+    // from every exported statement for exactly this reason: the logo happened
+    // to be cached from the splash screen, and the stamp, used nowhere else,
+    // never was.
+    //
+    // Only the declaration is asserted here. Driving a real decode needs
+    // frames the headless runner does not produce, so `precacheAssets` hangs
+    // rather than failing — which would make this suite worse, not better.
+    expect(StatementDocument.assets, contains('assets/images/stamp.png'));
+    expect(StatementDocument.assets, contains('assets/images/logo.png'));
+  });
 }

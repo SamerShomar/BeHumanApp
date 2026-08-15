@@ -217,6 +217,10 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
 
     setState(() => _isExporting = true);
     try {
+      // Before rendering, never after: the rasteriser paints in one pass and
+      // an undecoded image paints as nothing at all.
+      await StatementDocument.precacheAssets(context);
+
       const exporter = StatementExporter();
       final png = await exporter.renderToImage(
         UncontrolledProviderScope(

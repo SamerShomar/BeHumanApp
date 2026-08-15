@@ -20,6 +20,36 @@ class StatementDocument extends StatelessWidget {
   });
 
   /// A4 at 96dpi, so the captured image maps cleanly onto the PDF page.
+  /// Images the page draws.
+  ///
+  /// They must be in the image cache *before* the page is rasterised.
+  /// `Image.asset` decodes asynchronously, while the offscreen render builds,
+  /// lays out and paints in one synchronous pass — so an asset that is not
+  /// already cached simply paints nothing, silently. That is why the stamp was
+  /// missing from every exported statement no matter which file was in place:
+  /// the logo happened to be cached from the splash screen, and the stamp,
+  /// used nowhere else, never was.
+  static const List<String> assets = [
+    'assets/images/logo.png',
+    'assets/images/stamp.png',
+  ];
+
+  /// Loads [assets] into the image cache. Call before rasterising.
+  ///
+  /// Each wait is capped: a decode that never completes must not leave the
+  /// export button spinning forever. A statement missing its seal is a much
+  /// smaller problem than one that never arrives.
+  static Future<void> precacheAssets(BuildContext context) async {
+    for (final asset in assets) {
+      try {
+        await precacheImage(AssetImage(asset), context)
+            .timeout(const Duration(seconds: 5));
+      } catch (_) {
+        // Covered by the errorBuilder on the image itself.
+      }
+    }
+  }
+
   static const double pageWidth = 794;
   static const double pageHeight = 1123;
 
