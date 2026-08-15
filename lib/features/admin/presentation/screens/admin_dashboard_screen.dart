@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:be_human_app/core/languages/app_localizations.dart';
 import 'package:be_human_app/core/theme/app_colors.dart';
 import 'package:be_human_app/core/utils/formatters.dart';
+import 'package:be_human_app/features/finance/domain/money.dart';
+import 'package:be_human_app/features/finance/presentation/screens/finance_screen.dart';
 import 'package:be_human_app/core/widgets/glass.dart';
 import 'package:be_human_app/core/widgets/stat_card.dart';
 import 'package:be_human_app/core/widgets/state_views.dart';
@@ -38,7 +40,9 @@ class AdminDashboardScreen extends ConsumerWidget {
     }
 
     final proposals = ref.watch(proposalsProvider);
-    final finances = ref.watch(financesProvider);
+    final totals = MoneyTotals.of(
+      ref.watch(transactionsProvider).valueOrNull ?? const [],
+    );
     final about = ref.watch(aboutProvider);
 
     return Scaffold(
@@ -67,19 +71,22 @@ class AdminDashboardScreen extends ConsumerWidget {
               cards: [
                 StatCard(
                   label: AppLocalizations.of(context, 'balance'),
-                  amount: finances['balance'],
+                  amount: Money.format(totals.balanceIls, StatementCurrency.ils),
+                  secondary: Money.format(totals.balanceEur, StatementCurrency.eur),
                   color: AppColors.brand,
                   icon: Icons.account_balance_wallet_outlined,
                 ),
                 StatCard(
                   label: AppLocalizations.of(context, 'revenues'),
-                  amount: finances['totalIncome'],
+                  amount: Money.format(totals.incomeIls, StatementCurrency.ils),
+                  secondary: Money.format(totals.incomeEur, StatementCurrency.eur),
                   color: AppColors.success,
                   icon: Icons.south_west,
                 ),
                 StatCard(
                   label: AppLocalizations.of(context, 'expenses'),
-                  amount: finances['totalExpense'],
+                  amount: Money.format(totals.expenseIls, StatementCurrency.ils),
+                  secondary: Money.format(totals.expenseEur, StatementCurrency.eur),
                   color: AppColors.danger,
                   icon: Icons.north_east,
                 ),
@@ -144,7 +151,7 @@ class AdminDashboardScreen extends ConsumerWidget {
             _SectionHeader(
               title: AppLocalizations.of(context, 'financial'),
               actionLabel: AppLocalizations.of(context, 'add_movement'),
-              onAction: () => _showAddTransactionDialog(context, ref, user),
+              onAction: () => AddTransactionDialog.show(context),
             ),
             GlassCard(
               child: Column(
@@ -274,70 +281,6 @@ class AdminDashboardScreen extends ConsumerWidget {
     );
   }
 
-  void _showAddTransactionDialog(BuildContext context, WidgetRef ref, AppUser actor) {
-    final amountCtrl = TextEditingController();
-    final descCtrl = TextEditingController();
-    var type = 'income';
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(AppLocalizations.of(context, 'add_financial')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DropdownButtonFormField<String>(
-              initialValue: type,
-              items: [
-                DropdownMenuItem(value: 'income', child: Text(AppLocalizations.of(context, 'income_label'))),
-                DropdownMenuItem(value: 'expense', child: Text(AppLocalizations.of(context, 'expense_label'))),
-              ],
-              onChanged: (v) => type = v ?? 'income',
-              decoration: InputDecoration(labelText: AppLocalizations.of(context, 'type_label')),
-            ),
-            TextField(controller: amountCtrl, decoration: InputDecoration(labelText: AppLocalizations.of(context, 'amount_label')), keyboardType: TextInputType.number),
-            TextField(controller: descCtrl, decoration: InputDecoration(labelText: AppLocalizations.of(context, 'description_label'))),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(AppLocalizations.of(context, 'cancel'))),
-          ElevatedButton(
-            onPressed: () async {
-              final amount = double.tryParse(amountCtrl.text) ?? 0.0;
-              final id = 't${DateTime.now().millisecondsSinceEpoch}';
-              final transaction = {
-                'id': id,
-                'type': type,
-                'amount': amount,
-                'description': descCtrl.text,
-                'date': DateTime.now().toIso8601String(),
-              };
-
-              try {
-                final adminService = ref.read(firestoreAdminServiceProvider);
-                await adminService.addTransaction(transaction);
-                await ref.read(notificationServiceProvider).transactionAdded(
-                      actor: actor,
-                      transactionId: id,
-                      type: type,
-                      amount: amount,
-                    );
-                Navigator.of(ctx).pop();
-                ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context, 'transaction_added'))));
-              } catch (e) {
-                ScaffoldMessenger.of(ctx).showSnackBar(
-                  SnackBar(content: Text(AppLocalizations.of(
-                    context, 'transaction_add_failed', {'error': e.toString()},
-                  ))),
-                );
-              }
-            },
-            child: Text(AppLocalizations.of(context, 'save')),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 /// A member row with an inline role selector.

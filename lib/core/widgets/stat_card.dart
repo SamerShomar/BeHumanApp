@@ -21,13 +21,23 @@ class StatCard extends StatelessWidget {
   const StatCard({
     required this.label,
     required this.amount,
+    this.secondary,
     required this.color,
     required this.icon,
     super.key,
   });
 
   final String label;
+
+  /// Already formatted. The card used to format it, which meant the caller
+  /// could not show a figure the formatter did not know how to produce — a
+  /// second currency, for instance.
   final Object? amount;
+
+  /// A second, quieter line under the headline figure. Used for the same
+  /// total expressed in the other currency.
+  final String? secondary;
+
   final Color color;
   final IconData icon;
 
@@ -63,20 +73,41 @@ class StatCard extends StatelessWidget {
                 ),
               ],
             ),
-            SizedBox(
-              width: double.infinity,
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: AlignmentDirectional.centerStart,
-                child: Text(
-                  Formatters.amount(amount),
-                  maxLines: 1,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w700,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      amount is String ? amount as String : Formatters.amount(amount),
+                      maxLines: 1,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: color,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                if (secondary != null)
+                  SizedBox(
+                    width: double.infinity,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Text(
+                        secondary!,
+                        maxLines: 1,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: color.withOpacity(0.85),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ],
         ),

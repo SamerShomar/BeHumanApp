@@ -43,7 +43,14 @@ extension AppUserX on AppUser {
 
   bool get canApprove => role == UserRole.admin || role == UserRole.manager;
   bool get canPropose => true; // All roles can propose
-  bool get hasFinancialAccess => role == UserRole.admin || (role == UserRole.manager && team == UserTeam.netherlands);
+  /// Who may record a financial movement.
+  ///
+  /// Both teams, deliberately. Money moves at both ends — donations are
+  /// received in the Netherlands and spent in Gaza — and a ledger only one
+  /// end can write to is a ledger that is always out of date. Every entry
+  /// carries its transfer notice and the name of whoever recorded it, which
+  /// is what makes the wider access accountable rather than loose.
+  bool get hasFinancialAccess => true;
 }
 
 /// Roles and teams are stored as bare enum names, which are fine as data but

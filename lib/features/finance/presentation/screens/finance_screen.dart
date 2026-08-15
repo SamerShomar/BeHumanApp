@@ -14,6 +14,7 @@ import 'package:be_human_app/core/widgets/stat_card.dart';
 import 'package:be_human_app/core/widgets/state_views.dart';
 import 'package:be_human_app/features/finance/data/statement_exporter.dart';
 import 'package:be_human_app/features/finance/presentation/screens/pdf_preview_screen.dart';
+import 'package:be_human_app/features/finance/domain/money.dart';
 import 'package:be_human_app/features/finance/domain/statement_range.dart';
 import 'package:be_human_app/features/finance/presentation/widgets/statement_document.dart';
 import 'package:be_human_app/core/services/file_storage_service.dart';
@@ -22,6 +23,7 @@ import 'package:be_human_app/features/auth/presentation/providers/auth_provider.
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 import 'package:be_human_app/features/notifications/presentation/providers/notification_providers.dart';
 import 'package:be_human_app/features/notifications/presentation/widgets/notification_bell.dart';
+import 'package:be_human_app/features/proposals/presentation/widgets/pdf_viewer_widget.dart';
 
 class FinanceScreen extends ConsumerStatefulWidget {
   const FinanceScreen({super.key});
@@ -43,7 +45,7 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
     final visible = _range == null
         ? (transactions.valueOrNull ?? const <Map<String, dynamic>>[])
         : _range!.filter(transactions.valueOrNull ?? const []);
-    final finances = StatementRange.totals(visible);
+    final totals = MoneyTotals.of(visible);
 
     // Gaza members see the ledger but cannot change it; the rules enforce the
     // same thing server-side, so this only decides what is worth showing.
@@ -90,19 +92,22 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
               cards: [
                 StatCard(
                   label: AppLocalizations.of(context, 'balance'),
-                  amount: finances['balance'] ?? 0,
+                  amount: Money.format(totals.balanceIls, StatementCurrency.ils),
+                  secondary: Money.format(totals.balanceEur, StatementCurrency.eur),
                   color: AppColors.brand,
                   icon: Icons.account_balance_wallet_outlined,
                 ),
                 StatCard(
                   label: AppLocalizations.of(context, 'incoming'),
-                  amount: finances['totalIncome'] ?? 0,
+                  amount: Money.format(totals.incomeIls, StatementCurrency.ils),
+                  secondary: Money.format(totals.incomeEur, StatementCurrency.eur),
                   color: AppColors.success,
                   icon: Icons.south_west,
                 ),
                 StatCard(
                   label: AppLocalizations.of(context, 'outgoing'),
-                  amount: finances['totalExpense'] ?? 0,
+                  amount: Money.format(totals.expenseIls, StatementCurrency.ils),
+                  secondary: Money.format(totals.expenseEur, StatementCurrency.eur),
                   color: AppColors.danger,
                   icon: Icons.north_east,
                 ),
@@ -172,7 +177,7 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
           ? AppFab(
               icon: Icons.add,
               label: AppLocalizations.of(context, 'add_movement'),
-              onPressed: () => _showAddTransactionDialog(context, ref),
+              onPressed: () => AddTransactionDialog.show(context),
             )
           : null,
     );
@@ -267,57 +272,82 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
     return earliest;
   }
 
-  void _showAddTransactionDialog(BuildContext context, WidgetRef ref) {
-    showDialog<void>(
-      context: context,
-      builder: (_) => const _AddTransactionDialog(),
-    );
-  }
 }
 
 /// Adds a financial movement, optionally with a scanned invoice.
 ///
 /// The invoice goes to Supabase like proposal PDFs do; the document keeps only
 /// its object path, which is what makes it show up in the archive.
-class _AddTransactionDialog extends ConsumerStatefulWidget {
-  const _AddTransactionDialog();
+/// Records a financial movement.
+///
+/// Public because the admin dashboard offers the same action, and it used to
+/// do it through a second, thinner dialog of its own — one that asked for
+/// neither an exchange rate nor a transfer notice, and so could write rows the
+/// rest of the app now treats as incomplete. One way in, one set of rules.
+class AddTransactionDialog extends ConsumerStatefulWidget {
+  const AddTransactionDialog({super.key});
+
+  static Future<void> show(BuildContext context) => showDialog<void>(
+        context: context,
+        builder: (_) => const AddTransactionDialog(),
+      );
 
   @override
-  ConsumerState<_AddTransactionDialog> createState() => _AddTransactionDialogState();
+  ConsumerState<AddTransactionDialog> createState() => _AddTransactionDialogState();
 }
 
-class _AddTransactionDialogState extends ConsumerState<_AddTransactionDialog> {
+class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
   final _amountCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
+  final _rateCtrl = TextEditingController();
   String _type = 'income';
-  PlatformFile? _invoice;
+  StatementCurrency _currency = StatementCurrency.ils;
+  PlatformFile? _receipt;
   bool _isSaving = false;
 
   @override
   void dispose() {
     _amountCtrl.dispose();
     _descCtrl.dispose();
+    _rateCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _pickInvoice() async {
+  Future<void> _pickReceipt() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
       withData: true,
     );
     if (result == null || result.files.isEmpty) return;
-    setState(() => _invoice = result.files.first);
+    setState(() => _receipt = result.files.first);
   }
 
   Future<void> _save() async {
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
 
-    final amount = double.tryParse(_amountCtrl.text);
+    final amount = double.tryParse(_amountCtrl.text.trim());
     if (amount == null || amount <= 0) {
       messenger.showSnackBar(
         SnackBar(content: Text(AppLocalizations.of(context, 'invalid_amount'))),
+      );
+      return;
+    }
+
+    final rate = double.tryParse(_rateCtrl.text.trim());
+    if (rate == null || rate <= 0) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context, 'invalid_rate'))),
+      );
+      return;
+    }
+
+    // Required, not optional. Every movement of money on this ledger has to be
+    // backed by the transfer notice for it, and the whole team can open it.
+    if (_receipt == null) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context, 'receipt_required'))),
       );
       return;
     }
@@ -326,25 +356,30 @@ class _AddTransactionDialogState extends ConsumerState<_AddTransactionDialog> {
     final id = 't${DateTime.now().millisecondsSinceEpoch}';
 
     try {
-      String? invoicePath;
-      if (_invoice != null) {
-        final bytes = _invoice!.bytes ??
-            (_invoice!.path != null ? await File(_invoice!.path!).readAsBytes() : null);
-        if (bytes != null) {
-          invoicePath = await ref
-              .read(fileStorageServiceProvider)
-              .uploadInvoicePdf(transactionId: id, bytes: bytes);
-        }
+      final bytes = _receipt!.bytes ??
+          (_receipt!.path != null ? await File(_receipt!.path!).readAsBytes() : null);
+      if (bytes == null) {
+        if (mounted) setState(() => _isSaving = false);
+        messenger.showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context, 'file_not_loaded'))),
+        );
+        return;
       }
+
+      final receiptPath = await ref
+          .read(fileStorageServiceProvider)
+          .uploadInvoicePdf(transactionId: id, bytes: bytes);
 
       await ref.read(firestoreAdminServiceProvider).addTransaction({
         'id': id,
         'type': _type,
         'amount': amount,
-        'description': _descCtrl.text,
+        'currency': _currency.code,
+        'ilsPerEur': rate,
+        'description': _descCtrl.text.trim(),
         'date': DateTime.now().toIso8601String(),
-        if (invoicePath != null) 'filePath': invoicePath,
-        if (_invoice != null) 'fileName': _invoice!.name,
+        'filePath': receiptPath,
+        'fileName': _receipt!.name,
       });
 
       final actor = ref.read(currentUserStreamProvider).valueOrNull;
@@ -374,49 +409,116 @@ class _AddTransactionDialogState extends ConsumerState<_AddTransactionDialog> {
     }
   }
 
+  /// What the entered amount comes to in the other currency, shown live so a
+  /// mistyped rate is obvious before it is saved rather than after.
+  String? get _conversionHint {
+    final amount = double.tryParse(_amountCtrl.text.trim());
+    final rate = double.tryParse(_rateCtrl.text.trim());
+    if (amount == null || rate == null || rate <= 0) return null;
+
+    final money = Money(amount: amount, currency: _currency, ilsPerEur: rate);
+    return _currency == StatementCurrency.ils
+        ? money.formattedEur
+        : money.formattedIls;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final hint = _conversionHint;
+
     return AlertDialog(
       title: Text(AppLocalizations.of(context, 'add_financial')),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          DropdownButtonFormField<String>(
-            initialValue: _type,
-            items: [
-              DropdownMenuItem(value: 'income', child: Text(AppLocalizations.of(context, 'income_label'))),
-              DropdownMenuItem(value: 'expense', child: Text(AppLocalizations.of(context, 'expense_label'))),
-            ],
-            onChanged: (v) => setState(() => _type = v ?? 'income'),
-            decoration: InputDecoration(labelText: AppLocalizations.of(context, 'type_label')),
-          ),
-          TextField(
-            controller: _amountCtrl,
-            decoration: InputDecoration(labelText: AppLocalizations.of(context, 'amount_label')),
-            keyboardType: TextInputType.number,
-          ),
-          TextField(
-            controller: _descCtrl,
-            decoration: InputDecoration(labelText: AppLocalizations.of(context, 'description_label')),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _invoice?.name ?? AppLocalizations.of(context, 'no_file'),
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall,
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: _type,
+              items: [
+                DropdownMenuItem(value: 'income', child: Text(AppLocalizations.of(context, 'income_label'))),
+                DropdownMenuItem(value: 'expense', child: Text(AppLocalizations.of(context, 'expense_label'))),
+              ],
+              onChanged: (v) => setState(() => _type = v ?? 'income'),
+              decoration: InputDecoration(labelText: AppLocalizations.of(context, 'type_label')),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: _amountCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.of(context, 'amount_label'),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  flex: 2,
+                  child: DropdownButtonFormField<StatementCurrency>(
+                    initialValue: _currency,
+                    items: [
+                      for (final currency in StatementCurrency.values)
+                        DropdownMenuItem(
+                          value: currency,
+                          child: Text('${currency.symbol} ${currency.code}'),
+                        ),
+                    ],
+                    onChanged: (v) => setState(() => _currency = v ?? _currency),
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.of(context, 'currency_label'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              controller: _rateCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context, 'exchange_rate_label'),
+                helperText: AppLocalizations.of(context, 'exchange_rate_help'),
+                helperMaxLines: 2,
+              ),
+            ),
+            if (hint != null)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.sm),
+                child: Row(
+                  children: [
+                    const Icon(Icons.swap_horiz, size: 16, color: AppColors.brand),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        AppLocalizations.of(context, 'equals_value', {'value': hint}),
+                        style: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(color: AppColors.brand),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              TextButton.icon(
-                onPressed: _isSaving ? null : _pickInvoice,
-                icon: const Icon(Icons.attach_file, size: 18),
-                label: Text(AppLocalizations.of(context, 'archive_invoice')),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              controller: _descCtrl,
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context, 'description_label'),
               ),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _ReceiptField(
+              receipt: _receipt,
+              enabled: !_isSaving,
+              onPick: _pickReceipt,
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
@@ -434,9 +536,69 @@ class _AddTransactionDialogState extends ConsumerState<_AddTransactionDialog> {
   }
 }
 
-/// One financial movement. Only an admin may remove it — the rules enforce the
-/// same thing server-side, so hiding the action is a convenience, not the
-/// boundary.
+/// The transfer notice picker, which states plainly that it is not optional.
+class _ReceiptField extends StatelessWidget {
+  const _ReceiptField({
+    required this.receipt,
+    required this.enabled,
+    required this.onPick,
+  });
+
+  final PlatformFile? receipt;
+  final bool enabled;
+  final VoidCallback onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final chosen = receipt != null;
+    final color = chosen ? AppColors.success : theme.colorScheme.error;
+
+    return InkWell(
+      onTap: enabled ? onPick : null,
+      borderRadius: BorderRadius.circular(AppRadius.button),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppRadius.button),
+          border: Border.all(color: color.withOpacity(0.5)),
+          color: color.withOpacity(0.07),
+        ),
+        child: Row(
+          children: [
+            Icon(chosen ? Icons.check_circle_outline : Icons.upload_file, size: 20, color: color),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    AppLocalizations.of(context, 'transfer_receipt'),
+                    style: theme.textTheme.titleSmall?.copyWith(color: color),
+                  ),
+                  Text(
+                    receipt?.name ??
+                        AppLocalizations.of(context, 'receipt_required_hint'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One financial movement.
+///
+/// Every row carries the transfer notice that backs it, and anyone on the team
+/// can open it — a ledger the team cannot audit is just a list of numbers.
+/// Only an admin may remove a row; the rules enforce the same thing
+/// server-side, so hiding the action is a convenience, not the boundary.
 class _TransactionTile extends ConsumerWidget {
   const _TransactionTile({required this.transaction});
 
@@ -448,79 +610,125 @@ class _TransactionTile extends ConsumerWidget {
     final isAdmin = ref.watch(currentUserStreamProvider).valueOrNull?.isAdmin ?? false;
     final theme = Theme.of(context);
     final color = isIncome ? AppColors.success : AppColors.danger;
+    final money = Money.fromTransaction(transaction);
+    final receiptPath = transaction['filePath'];
 
     return GlassCard(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
         vertical: AppSpacing.md,
       ),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.14),
-              borderRadius: BorderRadius.circular(AppRadius.small),
-            ),
-            child: Icon(
-              isIncome ? Icons.south_west : Icons.north_east,
-              color: color,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  transaction['description'] as String? ??
-                      transaction['fileName'] as String? ??
-                      '',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall,
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(AppRadius.small),
                 ),
-                const SizedBox(height: 2),
-                Row(
+                child: Icon(
+                  isIncome ? Icons.south_west : Icons.north_east,
+                  color: color,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // A readable day, not the stored ISO timestamp — this row
-                    // used to print "2026-08-10T09:00:00.000".
+                    Text(
+                      transaction['description'] as String? ??
+                          transaction['fileName'] as String? ??
+                          '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 2),
                     Text(
                       Formatters.date(transaction['date']),
                       style: theme.textTheme.bodySmall,
                     ),
-                    if (transaction['fileName'] != null) ...[
-                      const SizedBox(width: 6),
-                      Icon(
-                        Icons.attach_file,
-                        size: 12,
-                        color: theme.textTheme.bodySmall?.color,
-                      ),
-                    ],
                   ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          // The amount appears once, here. It used to be printed twice on the
-          // same row — plain in the subtitle and signed in the trailing slot.
-          Text(
-            Formatters.signedAmount(transaction['amount'], isIncome: isIncome),
-            style: theme.textTheme.titleSmall?.copyWith(color: color),
-          ),
-          if (isAdmin)
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              icon: Icon(
-                Icons.delete_outline,
-                size: 20,
-                color: theme.colorScheme.onSurface.withOpacity(0.45),
               ),
-              tooltip: AppLocalizations.of(context, 'delete'),
-              onPressed: () => _confirmAndDelete(context, ref),
+              const SizedBox(width: AppSpacing.sm),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  // Both currencies, every row: the shekel figure is what was
+                  // spent on the ground, the euro one is what the donors gave.
+                  Text(
+                    money.signedIls(isIncome: isIncome),
+                    style: theme.textTheme.titleSmall?.copyWith(color: color),
+                  ),
+                  Text(
+                    money.signedEur(isIncome: isIncome),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: color.withOpacity(0.85),
+                    ),
+                  ),
+                ],
+              ),
+              if (isAdmin)
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(
+                    Icons.delete_outline,
+                    size: 20,
+                    color: theme.colorScheme.onSurface.withOpacity(0.45),
+                  ),
+                  tooltip: AppLocalizations.of(context, 'delete'),
+                  onPressed: () => _confirmAndDelete(context, ref),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          if (receiptPath is String)
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TextButton.icon(
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  visualDensity: VisualDensity.compact,
+                ),
+                icon: const Icon(Icons.receipt_long_outlined, size: 16),
+                label: Text(AppLocalizations.of(context, 'view_receipt')),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => PdfViewerWidget(
+                      storagePath: receiptPath,
+                      title: transaction['description'] as String?,
+                    ),
+                  ),
+                ),
+              ),
+            )
+          else
+            // Rows written before a notice was required. Flagged rather than
+            // left blank, because "no receipt" is itself worth seeing.
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.info_outline,
+                        size: 14, color: AppColors.warning),
+                    const SizedBox(width: 6),
+                    Text(
+                      AppLocalizations.of(context, 'no_receipt_on_record'),
+                      style: theme.textTheme.labelSmall
+                          ?.copyWith(color: AppColors.warning),
+                    ),
+                  ],
+                ),
+              ),
             ),
         ],
       ),
@@ -563,7 +771,7 @@ class _TransactionTile extends ConsumerWidget {
         try {
           await ref.read(fileStorageServiceProvider).deleteFile(filePath);
         } on FileStorageException {
-          // The ledger entry is gone; a leftover invoice file is acceptable.
+          // The ledger entry is gone; a leftover receipt is acceptable.
         }
       }
 

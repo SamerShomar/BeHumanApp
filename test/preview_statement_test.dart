@@ -29,8 +29,10 @@ void main() {
 
   final range = StatementRange(from: DateTime(2026, 8, 1), to: DateTime(2026, 8, 31));
   final transactions = [
-    {'id': 't1', 'type': 'income', 'amount': 25000.0, 'description': 'Donation — Rotterdam campaign', 'date': '2026-08-10T09:00:00.000'},
-    {'id': 't2', 'type': 'expense', 'amount': 8400.0, 'description': 'Water tanks purchase', 'date': '2026-08-08T09:00:00.000'},
+    {'id': 't1', 'type': 'income', 'amount': 6000.0, 'currency': 'EUR', 'ilsPerEur': 4.1, 'description': 'Donation — Rotterdam campaign', 'date': '2026-08-10T09:00:00.000'},
+    {'id': 't2', 'type': 'expense', 'amount': 8400.0, 'currency': 'ILS', 'ilsPerEur': 4.1, 'description': 'Water tanks purchase', 'date': '2026-08-08T09:00:00.000'},
+    // No rate: proves the euro cell reads as unknown rather than as zero.
+    {'id': 't3', 'type': 'expense', 'amount': 1250.5, 'currency': 'ILS', 'description': 'Transport', 'date': '2026-08-06T09:00:00.000'},
   ];
 
   for (final code in ['en', 'ar', 'nl']) {

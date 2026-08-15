@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import 'package:be_human_app/core/languages/app_localizations.dart';
+import 'package:be_human_app/features/finance/domain/money.dart';
 import 'package:be_human_app/features/finance/domain/statement_range.dart';
 
 /// The official financial statement, laid out as a widget.
@@ -46,11 +47,10 @@ class StatementDocument extends StatelessWidget {
   final StatementImages images;
 
   static final _date = DateFormat('yyyy-MM-dd');
-  static final _money = NumberFormat('#,##0.00', 'en');
 
   @override
   Widget build(BuildContext context) {
-    final totals = StatementRange.totals(transactions);
+    final totals = MoneyTotals.of(transactions);
 
     // Fixed light styling: a printed document does not follow the app's theme.
     return Container(
@@ -81,25 +81,27 @@ class StatementDocument extends StatelessWidget {
   }
 
   Widget _header(BuildContext context) {
-    return Row(
+    // Centred, stacked: the mark leads, then the organisation, then what the
+    // document is. A logo pinned to one edge reads as a letterhead; a printed
+    // record of money reads better as a title page.
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        _Picture(image: images.logo, size: 72),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                AppLocalizations.of(context, 'app_title'),
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                AppLocalizations.of(context, 'statement_title'),
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-              ),
-            ],
+        _Picture(image: images.logo, size: 84),
+        const SizedBox(height: 10),
+        Text(
+          AppLocalizations.of(context, 'app_title'),
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          AppLocalizations.of(context, 'invoices_title'),
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
           ),
         ),
       ],
@@ -129,7 +131,7 @@ class StatementDocument extends StatelessWidget {
   }
 
   Widget _table(BuildContext context) {
-    final headerStyle = const TextStyle(fontWeight: FontWeight.bold, fontSize: 12);
+    const headerStyle = TextStyle(fontWeight: FontWeight.bold, fontSize: 11);
     final border = BorderSide(color: const Color(0xFF12233A).withOpacity(0.15));
 
     if (transactions.isEmpty) {
@@ -146,10 +148,11 @@ class StatementDocument extends StatelessWidget {
       child: Table(
         border: TableBorder(horizontalInside: border, top: border, bottom: border),
         columnWidths: const {
-          0: FlexColumnWidth(2),
-          1: FlexColumnWidth(5),
-          2: FlexColumnWidth(2),
-          3: FlexColumnWidth(2),
+          0: FlexColumnWidth(2.2),
+          1: FlexColumnWidth(4.4),
+          2: FlexColumnWidth(1.8),
+          3: FlexColumnWidth(2.4),
+          4: FlexColumnWidth(2.4),
         },
         children: [
           TableRow(
@@ -158,23 +161,36 @@ class StatementDocument extends StatelessWidget {
               _cell(AppLocalizations.of(context, 'date_label'), style: headerStyle),
               _cell(AppLocalizations.of(context, 'description_label'), style: headerStyle),
               _cell(AppLocalizations.of(context, 'type_label'), style: headerStyle),
-              _cell(AppLocalizations.of(context, 'amount_label'), style: headerStyle),
+              _cell(AppLocalizations.of(context, 'amount_ils'), style: headerStyle),
+              _cell(AppLocalizations.of(context, 'amount_eur'), style: headerStyle),
             ],
           ),
           for (final t in transactions)
-            TableRow(
-              children: [
-                _cell(_formatDate(t['date'])),
-                _cell(t['description'] as String? ?? t['fileName'] as String? ?? ''),
-                _cell(AppLocalizations.of(
-                  context,
-                  t['type'] == 'income' ? 'income_label' : 'expense_label',
-                )),
-                _cell(_formatAmount(t['amount'])),
-              ],
-            ),
+            _movementRow(context, t),
         ],
       ),
+    );
+  }
+
+  /// One movement, shown in both currencies.
+  ///
+  /// A cell reads "—" when the rate needed to convert it was never recorded.
+  /// That is deliberate: a printed financial record must not carry a figure
+  /// nobody chose a rate for.
+  TableRow _movementRow(BuildContext context, Map<String, dynamic> t) {
+    final money = Money.fromTransaction(t);
+
+    return TableRow(
+      children: [
+        _cell(_formatDate(t['date'])),
+        _cell(t['description'] as String? ?? t['fileName'] as String? ?? ''),
+        _cell(AppLocalizations.of(
+          context,
+          t['type'] == 'income' ? 'income_label' : 'expense_label',
+        )),
+        _cell(money.formattedIls),
+        _cell(money.formattedEur),
+      ],
     );
   }
 
@@ -183,40 +199,73 @@ class StatementDocument extends StatelessWidget {
         child: Text(text, style: style),
       );
 
-  Widget _totals(BuildContext context, Map<String, double> totals) {
-    Widget line(String key, double value, {bool bold = false}) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 3),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  AppLocalizations.of(context, key),
-                  style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${_money.format(value)} \$',
-                style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal),
-              ),
-            ],
-          ),
-        );
-
-    return Align(
-      alignment: AlignmentDirectional.centerEnd,
-      child: SizedBox(
-        width: 280,
-        child: Column(
+  Widget _totals(BuildContext context, MoneyTotals totals) {
+    Widget line(String key, double ils, double eur, {bool bold = false}) {
+      final style = TextStyle(
+        fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+      );
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
           children: [
-            line('incoming', totals['totalIncome'] ?? 0),
-            line('outgoing', totals['totalExpense'] ?? 0),
-            Divider(color: const Color(0xFF12233A).withOpacity(0.2)),
-            line('balance_current', totals['balance'] ?? 0, bold: true),
+            Expanded(
+              flex: 3,
+              child: Text(AppLocalizations.of(context, key), style: style),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                Money.format(ils, StatementCurrency.ils),
+                textAlign: TextAlign.end,
+                style: style,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                Money.format(eur, StatementCurrency.eur),
+                textAlign: TextAlign.end,
+                style: style,
+              ),
+            ),
           ],
         ),
-      ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        SizedBox(
+          width: 400,
+          child: Column(
+            children: [
+              line('incoming', totals.incomeIls, totals.incomeEur),
+              line('outgoing', totals.expenseIls, totals.expenseEur),
+              Divider(color: const Color(0xFF12233A).withOpacity(0.2)),
+              line('balance_current', totals.balanceIls, totals.balanceEur,
+                  bold: true),
+            ],
+          ),
+        ),
+        // Said out loud rather than hidden in a footnote: a total that leaves
+        // rows out must declare how many, or it is simply wrong.
+        if (!totals.isComplete) ...[
+          const SizedBox(height: 6),
+          SizedBox(
+            width: 400,
+            child: Text(
+              AppLocalizations.of(context, 'totals_missing_rate',
+                  {'count': '${totals.unconvertible}'}),
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: 11,
+                color: const Color(0xFF12233A).withOpacity(0.6),
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -240,7 +289,8 @@ class StatementDocument extends StatelessWidget {
             ],
           ),
         ),
-        _Picture(image: images.stamp, size: 110),
+        // Enlarged: at 110 the seal read as an icon rather than a stamp.
+        _Picture(image: images.stamp, size: 150),
       ],
     );
   }
@@ -250,14 +300,6 @@ class StatementDocument extends StatelessWidget {
     return parsed == null ? '' : _date.format(parsed);
   }
 
-  static String _formatAmount(Object? raw) {
-    final value = switch (raw) {
-      final num n => n.toDouble(),
-      final String s => double.tryParse(s),
-      _ => null,
-    };
-    return value == null ? '' : _money.format(value);
-  }
 }
 
 /// Draws an already-decoded image, or reserves its space when there is none.

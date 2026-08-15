@@ -27,6 +27,17 @@ void main() {
     {'id': 't2', 'type': 'expense', 'amount': 8400.0, 'description': 'Water tanks', 'date': '2026-08-08T09:00:00.000'},
   ];
 
+  /// The page is a fixed A4 canvas. Pumped into the runner's default 800x600
+  /// surface it is squeezed to 600 and reports an overflow that says nothing
+  /// about the real render, which happens at full size.
+  void usePageSizedSurface(WidgetTester tester) {
+    tester.view.physicalSize = const Size(
+      StatementDocument.pageWidth, StatementDocument.pageHeight,
+    );
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+  }
+
   Widget bareDocument() => Directionality(
         textDirection: TextDirection.rtl,
         child: StatementDocument(
@@ -37,6 +48,7 @@ void main() {
       );
 
   testWidgets('fails silently when the container is not handed over', (tester) async {
+    usePageSizedSurface(tester);
     // The regression itself. Note that nothing is thrown to the caller — the
     // error becomes pixels, which is why a broken statement was shareable.
     await tester.pumpWidget(bareDocument());
@@ -47,6 +59,7 @@ void main() {
   });
 
   testWidgets('renders when the app container is passed in', (tester) async {
+    usePageSizedSurface(tester);
     final container = ProviderContainer();
     addTearDown(container.dispose);
 
@@ -59,6 +72,7 @@ void main() {
   });
 
   testWidgets('lays out right-to-left for an Arabic statement', (tester) async {
+    usePageSizedSurface(tester);
     // The exporter used to pin every render to LTR regardless of language.
     final container = ProviderContainer();
     addTearDown(container.dispose);

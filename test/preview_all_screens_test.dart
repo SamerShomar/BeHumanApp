@@ -122,8 +122,9 @@ void main() {
   ];
 
   final transactions = [
-    {'id': 't1', 'type': 'income', 'amount': 25000.0, 'description': 'Donation — Rotterdam campaign', 'date': '2026-08-10T09:00:00.000'},
-    {'id': 't2', 'type': 'expense', 'amount': 8400.0, 'description': 'Water tanks purchase', 'date': '2026-08-08T09:00:00.000', 'fileName': 'invoice.pdf'},
+    {'id': 't1', 'type': 'income', 'amount': 6000.0, 'currency': 'EUR', 'ilsPerEur': 4.1, 'description': 'Donation — Rotterdam campaign', 'date': '2026-08-10T09:00:00.000', 'filePath': 'invoices/t1.pdf', 'fileName': 'transfer.pdf'},
+    {'id': 't2', 'type': 'expense', 'amount': 8400.0, 'currency': 'ILS', 'ilsPerEur': 4.1, 'description': 'Water tanks purchase', 'date': '2026-08-08T09:00:00.000', 'filePath': 'invoices/t2.pdf', 'fileName': 'receipt.pdf'},
+    // Written before a rate was asked for: shows how an old row now reads.
     {'id': 't3', 'type': 'expense', 'amount': 1250.5, 'description': 'Transport', 'date': '2026-08-06T09:00:00.000'},
   ];
 

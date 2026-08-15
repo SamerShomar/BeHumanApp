@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:be_human_app/core/languages/app_localizations.dart';
 import 'package:be_human_app/core/theme/app_colors.dart';
 import 'package:be_human_app/core/utils/formatters.dart';
+import 'package:be_human_app/features/finance/domain/money.dart';
 import 'package:be_human_app/core/widgets/glass.dart';
 import 'package:be_human_app/core/widgets/state_views.dart';
 import 'package:be_human_app/core/widgets/stat_card.dart';
@@ -22,7 +23,9 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserStreamProvider);
-    final finances = ref.watch(financesProvider);
+    final totals = MoneyTotals.of(
+      ref.watch(transactionsProvider).valueOrNull ?? const [],
+    );
     final proposals = ref.watch(proposalsProvider);
     final projects = ref.watch(projectsProvider);
     final siteContent = ref.watch(siteContentProvider).valueOrNull ?? const {};
@@ -82,19 +85,22 @@ class HomeScreen extends ConsumerWidget {
                   cards: [
                     StatCard(
                       label: AppLocalizations.of(context, 'balance_current'),
-                      amount: finances['balance'],
+                      amount: Money.format(totals.balanceIls, StatementCurrency.ils),
+                      secondary: Money.format(totals.balanceEur, StatementCurrency.eur),
                       color: AppColors.brand,
                       icon: Icons.account_balance_wallet_outlined,
                     ),
                     StatCard(
                       label: AppLocalizations.of(context, 'incoming'),
-                      amount: finances['totalIncome'],
+                      amount: Money.format(totals.incomeIls, StatementCurrency.ils),
+                      secondary: Money.format(totals.incomeEur, StatementCurrency.eur),
                       color: AppColors.success,
                       icon: Icons.south_west,
                     ),
                     StatCard(
                       label: AppLocalizations.of(context, 'outgoing'),
-                      amount: finances['totalExpense'],
+                      amount: Money.format(totals.expenseIls, StatementCurrency.ils),
+                      secondary: Money.format(totals.expenseEur, StatementCurrency.eur),
                       color: AppColors.danger,
                       icon: Icons.north_east,
                     ),

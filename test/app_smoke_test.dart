@@ -14,6 +14,7 @@ import 'package:be_human_app/features/no_internet/presentation/screens/no_intern
 import 'package:be_human_app/features/proposals/presentation/screens/proposals_list_screen.dart';
 import 'package:be_human_app/features/finance/presentation/screens/finance_screen.dart';
 import 'package:be_human_app/core/utils/formatters.dart';
+import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 import 'package:be_human_app/features/home/presentation/screens/home_screen.dart';
 import 'package:be_human_app/core/utils/connectivity.dart';
 import 'package:be_human_app/core/services/file_storage_service.dart';
@@ -52,5 +53,19 @@ void main() {
     expect(Formatters.signedAmount(840.5, isIncome: false), '−840.50\$');
     // Stored timestamps must never reach a user as-is.
     expect(Formatters.date('2026-08-10T09:00:00.000'), '2026-08-10');
+  });
+
+  test('both teams may record a financial movement', () {
+    // Money is received in the Netherlands and spent in Gaza; a ledger only
+    // one end can write to is always out of date.
+    for (final team in UserTeam.values) {
+      for (final role in UserRole.values) {
+        final user = AppUser(
+          uid: 'u', email: 'u@behuman.org', name: 'U', role: role, team: team,
+        );
+        expect(user.hasFinancialAccess, isTrue,
+            reason: '${role.name} on ${team.name} cannot record a movement');
+      }
+    }
   });
 }

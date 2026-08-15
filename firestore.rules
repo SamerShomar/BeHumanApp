@@ -78,7 +78,14 @@ service cloud.firestore {
 
     match /transactions/{transactionId} {
       allow read: if hasProfile();
-      allow create, update: if isReviewer();
+
+      // Both teams record movements: money is received in the Netherlands and
+      // spent in Gaza, and a ledger only one end can write to is always out of
+      // date. Accountability comes from the record itself — every entry
+      // carries the transfer notice behind it — not from locking the door.
+      allow create, update: if hasProfile();
+
+      // Removing an entry from a financial record stays with admins.
       allow delete: if isAdmin();
     }
 
