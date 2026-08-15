@@ -1,18 +1,119 @@
 # Putting the app on an iPhone
 
-## The one requirement that has no way around it
+## Two separate requirements, often confused
 
-**A Mac.** Apple only allows an iOS app to be compiled and signed on macOS with
-Xcode. This is Apple's restriction, not the project's — there is no Windows or
-Linux path, and no setting that changes it.
+Getting this app onto an iPhone needs two things that people tend to treat as
+one. They are not:
 
-If there is no Mac available, the two real options are:
+1. **A Mac**, to compile it. Apple allows iOS builds on macOS only.
+2. **An Apple account**, to *sign* it. Unsigned apps do not install on phones —
+   this is enforced by iOS itself, not by any tool.
 
-- **A rented Mac in the cloud** — MacinCloud or MacStadium, roughly $20–30 a
-  month, used through remote desktop.
-- **A build service** — Codemagic has a free tier for Flutter and builds iOS
-  without you touching a Mac at all. It still needs an Apple account for
-  signing.
+**Codemagic solves the first and not the second.** It builds on its own Macs,
+so no Mac is needed here. But signing still runs through Apple, and Codemagic
+signs with an App Store Connect API key, which **Apple issues only to paid
+Developer Program accounts ($99/year)**. A free Apple ID can sign only through
+Xcode on a Mac — which is the situation Codemagic exists to avoid.
+
+So, honestly:
+
+| What you have | What you get |
+| --- | --- |
+| Codemagic, no Apple account | proof the app compiles for iOS — nothing installable |
+| Codemagic + $99 program | TestFlight: the team installs it from a link, no cables |
+| A Mac + free Apple ID | installable, stops working every 7 days |
+| A Mac + $99 program | same as Codemagic + $99 |
+
+The build-check-only case is still worth running first. Nobody has ever
+compiled the iOS side of this project, so it is where the Podfile, the
+deployment target and the Firebase setup get their first real test — and it
+costs nothing to find out before spending $99.
+
+Codemagic's free tier gives 500 build minutes a month on macOS, which is
+plenty for a project this size.
+
+If you would rather have the Mac itself: **MacinCloud** or **MacStadium** rent
+one for roughly $20–30 a month over remote desktop, and then the "A Mac"
+rows above apply instead.
+
+## Setting up Codemagic
+
+`codemagic.yaml` in the repository root already defines three workflows:
+
+| Workflow | What it does | Needs |
+| --- | --- | --- |
+| `ios-unsigned` | compiles iOS, proves the setup works | nothing but the Firebase file |
+| `ios-testflight` | builds and sends to TestFlight | the $99 program |
+| `android-apk` | builds the Android APK | nothing extra |
+
+### 1. Connect the repository
+
+1. Sign up at `codemagic.io` with the GitHub account
+2. **Add application** → GitHub → **BeHumanApp**
+3. It will find `codemagic.yaml` on its own and list the three workflows
+
+### 2. Add the keys
+
+Two environment groups, under **Environment variables** in the app settings.
+Tick **Secure** on every one of them.
+
+Group **`supabase`** — the same two values as your local `env.json`:
+
+| Variable | Value |
+| --- | --- |
+| `SUPABASE_URL` | `https://<your-ref>.supabase.co` |
+| `SUPABASE_ANON_KEY` | the anon *public* key |
+
+Never add the Supabase `service_role` key to this group. It is a full admin
+credential, and anything in these groups is compiled into an app that gets
+handed to people.
+
+Group **`firebase-ios`** — the Firebase config file, which is not in the
+repository:
+
+| Variable | Value |
+| --- | --- |
+| `GOOGLE_SERVICE_INFO_PLIST` | the file, base64-encoded |
+
+To produce that value, after downloading the file from Firebase (see the next
+section for how):
+
+```bash
+# macOS / Linux
+base64 -i GoogleService-Info.plist | tr -d '\n'
+```
+
+```powershell
+# Windows PowerShell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("GoogleService-Info.plist"))
+```
+
+Paste the result as the variable's value. The build decodes it back into
+`ios/Runner/GoogleService-Info.plist` and checks it parses before going on, so
+a truncated paste fails the build with a clear reason instead of crashing on
+someone's phone later.
+
+### 3. Run `ios-unsigned`
+
+Press **Start new build**, pick the branch, pick `iOS — build check`. It runs
+the analyzer and the full test suite first, then compiles.
+
+If it goes green, the iOS side of this project is sound and the only thing
+between you and phones is the Apple account.
+
+### 4. When you have the $99 program
+
+1. `appstoreconnect.apple.com` → **Users and Access** → **Integrations** →
+   **App Store Connect API** → **+** → role **App Manager** → download the
+   `.p8`. **It downloads once only.** Note the Issuer ID and Key ID.
+2. In Codemagic: **Teams** → **Integrations** → **App Store Connect** → add
+   the key, and name it exactly **`codemagic-api-key`** — `codemagic.yaml`
+   refers to it by that name.
+3. Register the app on App Store Connect with bundle ID
+   `com.behuman.beHumanApp`.
+4. Run the `ios-testflight` workflow. Everyone who should get the app is added
+   under **TestFlight → Internal Testing**; they install Apple's TestFlight app
+   and the build appears there.
 
 ## Which Apple account
 
@@ -51,13 +152,18 @@ the app **crashes the instant it opens** — Firebase cannot start.
    ios/Runner/GoogleService-Info.plist
    ```
 
-   It has to be added *through Xcode* so the file is included in the build:
-   open `ios/Runner.xcworkspace`, drag the file onto the `Runner` folder in
-   the left sidebar, and make sure **"Copy items if needed"** and the
+   **On Codemagic** that is all — base64 it into the `GOOGLE_SERVICE_INFO_PLIST`
+   variable as described above and the build writes it into place.
+
+   **On a Mac**, it has to be added *through Xcode* so the file is included in
+   the build: open `ios/Runner.xcworkspace`, drag the file onto the `Runner`
+   folder in the left sidebar, and make sure **"Copy items if needed"** and the
    **Runner** target are both ticked. Dropping it in the folder with Finder
    alone is the most common reason the app still crashes afterwards.
 
-## Building it
+## Building it on a Mac
+
+Only relevant if you have one — otherwise use the Codemagic route above.
 
 From the project folder on the Mac:
 
@@ -91,9 +197,13 @@ Everything so far gets the app running. Notifications need three more things,
 and **all of them require the paid $99 program** — Apple does not issue push
 certificates to free accounts.
 
-1. **Turn the capability on.** Xcode → **Signing & Capabilities** →
-   **+ Capability** → **Push Notifications**. This also creates the
-   entitlements file and wires it up, which is why it is not done by hand here.
+1. **Turn the capability on.** On Codemagic this is part of the provisioning
+   profile: enable **Push Notifications** on the App ID at
+   `developer.apple.com` → Certificates, Identifiers & Profiles →
+   **Identifiers** → `com.behuman.beHumanApp`. On a Mac, Xcode →
+   **Signing & Capabilities** → **+ Capability** → **Push Notifications**,
+   which also writes the entitlements file — which is why that file is not
+   committed here by hand.
 2. **Create an APNs key.** `developer.apple.com` → Certificates, Identifiers &
    Profiles → **Keys** → **+** → tick **Apple Push Notifications service** →
    download the `.p8`. **It can only be downloaded once.** Note the Key ID, and
