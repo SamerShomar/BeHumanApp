@@ -280,9 +280,6 @@ class _ProposalTile extends StatelessWidget {
 
     return GlassCard(
       onTap: onTap,
-      // Inside a scrolling list a backdrop filter per row costs more than it
-      // adds; the translucent fill over the gradient still reads as glass.
-      blurred: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

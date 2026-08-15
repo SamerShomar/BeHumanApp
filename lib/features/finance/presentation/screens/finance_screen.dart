@@ -424,7 +424,6 @@ class _TransactionTile extends ConsumerWidget {
     final color = isIncome ? AppColors.success : AppColors.danger;
 
     return GlassCard(
-      blurred: false,
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
         vertical: AppSpacing.md,

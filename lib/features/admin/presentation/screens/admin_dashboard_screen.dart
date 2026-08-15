@@ -96,7 +96,6 @@ class AdminDashboardScreen extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                 child: GlassCard(
-                  blurred: false,
                   padding: const EdgeInsets.all(AppSpacing.md),
                   child: Row(
                     children: [
@@ -358,7 +357,6 @@ class _MemberTile extends ConsumerWidget {
     final isSelf = member.uid == currentUserUid;
 
     return GlassCard(
-      blurred: false,
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
         vertical: AppSpacing.sm,
@@ -469,7 +467,6 @@ class _ProjectRow extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return GlassCard(
-      blurred: false,
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
         vertical: AppSpacing.sm,

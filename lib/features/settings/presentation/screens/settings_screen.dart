@@ -35,6 +35,7 @@ class SettingsScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             GlassCard(
+              blurred: true,
               padding: const EdgeInsets.all(AppSpacing.lg),
               child: Row(
                 children: [
@@ -74,6 +75,7 @@ class SettingsScreen extends ConsumerWidget {
             // floating on the background.
             _SectionLabel(text: AppLocalizations.of(context, 'preferences')),
             GlassCard(
+              blurred: true,
               padding: EdgeInsets.zero,
               child: Column(
                 children: [

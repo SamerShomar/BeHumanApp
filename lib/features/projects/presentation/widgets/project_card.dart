@@ -29,7 +29,6 @@ class ProjectCard extends StatelessWidget {
 
     return GlassCard(
       onTap: onTap,
-      blurred: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -96,7 +96,6 @@ class _NotificationTile extends ConsumerWidget {
             : AppColors.success;
 
     return GlassCard(
-      blurred: false,
       // Unread entries are washed with the accent rather than badged: the
       // whole card reads as new at a glance, which matters on a small screen.
       tint: isRead ? null : accent,

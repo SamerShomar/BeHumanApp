@@ -173,6 +173,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: AppSpacing.xl),
                     GlassCard(
+                      // One frosted panel on the screen, and nothing repeating
+                      // behind it — this is where the effect is worth its cost.
+                      blurred: true,
                       padding: const EdgeInsets.all(AppSpacing.xl),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,

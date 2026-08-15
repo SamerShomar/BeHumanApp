@@ -35,33 +35,29 @@ class AppBackground extends StatelessWidget {
           ),
         ),
 
-        // Colour pools. They are the only reason a blurred panel shows any
-        // variation across its surface.
+        // Colour pools. They are the only reason a panel shows any variation
+        // across its surface.
+        //
+        // These are radial gradients that fade to nothing, not circles behind
+        // a blur. A full-screen BackdropFilter used to sit over them to soften
+        // the edges — it looked the same and cost a whole-screen GPU filter on
+        // every frame, underneath the entire app. On a mid-range Android phone
+        // that, stacked with the panels' own filters, was enough to take the
+        // process down.
         _Blob(
           alignment: const Alignment(-1.1, -0.85),
-          color: AppColors.brand.withOpacity(dark ? 0.30 : 0.26),
-          size: 320,
+          color: AppColors.brand.withOpacity(dark ? 0.26 : 0.22),
+          size: 460,
         ),
         _Blob(
           alignment: const Alignment(1.2, -0.35),
-          color: AppColors.brandDeep.withOpacity(dark ? 0.28 : 0.20),
-          size: 280,
+          color: AppColors.brandDeep.withOpacity(dark ? 0.24 : 0.17),
+          size: 420,
         ),
         _Blob(
           alignment: const Alignment(-0.8, 1.1),
-          color: (dark ? AppColors.success : AppColors.brand).withOpacity(dark ? 0.16 : 0.18),
-          size: 300,
-        ),
-
-        // One wide blur over the pools softens them into light rather than
-        // three visible circles.
-        Positioned.fill(
-          child: IgnorePointer(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-              child: const ColoredBox(color: Colors.transparent),
-            ),
-          ),
+          color: (dark ? AppColors.success : AppColors.brand).withOpacity(dark ? 0.14 : 0.15),
+          size: 440,
         ),
 
         child,
@@ -97,15 +93,20 @@ class _Blob extends StatelessWidget {
 
 /// A frosted panel: the app's one card.
 ///
-/// [blurred] can be turned off inside long scrolling lists, where a separate
-/// backdrop filter per row costs more than it adds — the translucent fill and
-/// the lit edge already read as glass over the gradient.
+/// [blurred] defaults to **off**, and that is deliberate. A `BackdropFilter`
+/// is a full GPU pass over whatever is behind it; a screen carrying seven of
+/// them crashed mid-range Android phones outright. The translucent fill and
+/// the lit edge already read as glass over the gradient, which is why the
+/// list rows have always looked right without one.
+///
+/// Turn it on for a *single large panel* that the eye rests on — the sign-in
+/// card, a settings group — and never for something that repeats.
 class GlassCard extends StatelessWidget {
   const GlassCard({
     required this.child,
     this.padding = const EdgeInsets.all(AppSpacing.lg),
     this.radius = AppRadius.card,
-    this.blurred = true,
+    this.blurred = false,
     this.onTap,
     this.tint,
     super.key,

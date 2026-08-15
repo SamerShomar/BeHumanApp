@@ -32,14 +32,21 @@ class _PushRegistrarState extends ConsumerState<PushRegistrar> {
       if (uid == null || uid == _registeredUid) return;
 
       _registeredUid = uid;
-      // Reading the provider is inside the guard too: on a build with no
-      // Firebase messaging available it throws on construction, and a missing
-      // push channel must never take the app down with it.
-      try {
-        ref.read(pushServiceProvider).register(uid);
-      } catch (_) {
-        // In-app notifications still work; only closed-app alerts are lost.
-      }
+
+      // Deferred to after the frame: registering asks the OS for notification
+      // permission and talks to Google Play services, and neither belongs in
+      // the middle of building the first screen.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        // Reading the provider is inside the guard too: on a build with no
+        // Firebase messaging available it throws on construction, and a
+        // missing push channel must never take the app down with it.
+        try {
+          ref.read(pushServiceProvider).register(uid);
+        } catch (_) {
+          // In-app notifications still work; only closed-app alerts are lost.
+        }
+      });
     });
 
     return widget.child;
