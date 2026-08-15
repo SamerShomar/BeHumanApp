@@ -81,17 +81,27 @@ void main() {
     }
   });
 
-  test('the page declares the images it draws, so they can be precached', () {
-    // The rasteriser paints in a single synchronous pass, so an asset that is
-    // not already decoded paints as nothing — silently. The stamp was missing
-    // from every exported statement for exactly this reason: the logo happened
-    // to be cached from the splash screen, and the stamp, used nowhere else,
-    // never was.
-    //
-    // Only the declaration is asserted here. Driving a real decode needs
-    // frames the headless runner does not produce, so `precacheAssets` hangs
-    // rather than failing — which would make this suite worse, not better.
-    expect(StatementDocument.assets, contains('assets/images/stamp.png'));
-    expect(StatementDocument.assets, contains('assets/images/logo.png'));
+  testWidgets('decodes the logo and the seal up front', (tester) async {
+    // The rasteriser paints in a single pass, so anything still resolving
+    // paints as empty space — silently. The page used to reach for
+    // `Image.asset` and hope the image cache had been warmed with a matching
+    // key, and the key depends on the configuration of whichever context did
+    // the warming, not the one the page is painted in. Handing over decoded
+    // images removes the coincidence.
+    late final StatementImages images;
+    await tester.runAsync(() async {
+      images = await StatementImages.load();
+    });
+
+    expect(images.logo, isNotNull, reason: 'the statement would print unbranded');
+    expect(images.stamp, isNotNull, reason: 'the statement would print unsealed');
+    expect(images.logo!.width, greaterThan(0));
+    expect(images.stamp!.width, greaterThan(0));
+  });
+
+  test('a page with nothing decoded still lays out', () {
+    // A missing file must cost the seal, not the document.
+    expect(StatementImages.none.logo, isNull);
+    expect(StatementImages.none.stamp, isNull);
   });
 }

@@ -217,9 +217,9 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
 
     setState(() => _isExporting = true);
     try {
-      // Before rendering, never after: the rasteriser paints in one pass and
-      // an undecoded image paints as nothing at all.
-      await StatementDocument.precacheAssets(context);
+      // Decoded before rendering, never resolved during it: the rasteriser
+      // paints in one pass, and an image still loading paints as nothing.
+      final images = await StatementImages.load();
 
       const exporter = StatementExporter();
       final png = await exporter.renderToImage(
@@ -231,6 +231,7 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
               range: range,
               transactions: visible,
               issuedBy: user?.name ?? '',
+              images: images,
             ),
           ),
         ),
@@ -580,11 +581,13 @@ class _StatementHost extends StatelessWidget {
     required this.range,
     required this.transactions,
     required this.issuedBy,
+    required this.images,
   });
 
   final StatementRange range;
   final List<Map<String, dynamic>> transactions;
   final String issuedBy;
+  final StatementImages images;
 
   @override
   Widget build(BuildContext context) {
@@ -592,6 +595,7 @@ class _StatementHost extends StatelessWidget {
       range: range,
       transactions: transactions,
       issuedBy: issuedBy,
+      images: images,
     );
   }
 }

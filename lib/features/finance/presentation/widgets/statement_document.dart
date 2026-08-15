@@ -1,4 +1,7 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import 'package:be_human_app/core/languages/app_localizations.dart';
@@ -17,45 +20,30 @@ class StatementDocument extends StatelessWidget {
     required this.range,
     required this.transactions,
     required this.issuedBy,
+    this.images = StatementImages.none,
   });
 
   /// A4 at 96dpi, so the captured image maps cleanly onto the PDF page.
-  /// Images the page draws.
-  ///
-  /// They must be in the image cache *before* the page is rasterised.
-  /// `Image.asset` decodes asynchronously, while the offscreen render builds,
-  /// lays out and paints in one synchronous pass — so an asset that is not
-  /// already cached simply paints nothing, silently. That is why the stamp was
-  /// missing from every exported statement no matter which file was in place:
-  /// the logo happened to be cached from the splash screen, and the stamp,
-  /// used nowhere else, never was.
-  static const List<String> assets = [
-    'assets/images/logo.png',
-    'assets/images/stamp.png',
-  ];
-
-  /// Loads [assets] into the image cache. Call before rasterising.
-  ///
-  /// Each wait is capped: a decode that never completes must not leave the
-  /// export button spinning forever. A statement missing its seal is a much
-  /// smaller problem than one that never arrives.
-  static Future<void> precacheAssets(BuildContext context) async {
-    for (final asset in assets) {
-      try {
-        await precacheImage(AssetImage(asset), context)
-            .timeout(const Duration(seconds: 5));
-      } catch (_) {
-        // Covered by the errorBuilder on the image itself.
-      }
-    }
-  }
-
   static const double pageWidth = 794;
   static const double pageHeight = 1123;
 
   final StatementRange range;
   final List<Map<String, dynamic>> transactions;
   final String issuedBy;
+
+  /// Images decoded up front by the caller.
+  ///
+  /// The page is rasterised in one synchronous pass — build, layout, paint,
+  /// capture — so anything resolved asynchronously has nothing to draw by the
+  /// time the shutter closes, and paints as empty space without erroring.
+  ///
+  /// `Image.asset` is exactly that: asynchronous, and dependent on the image
+  /// cache having been warmed with a matching key. Warming it worked, but only
+  /// as long as the key matched — and the key is derived from the
+  /// configuration of whichever context did the warming, which is not the
+  /// context the page is painted in. Handing over already-decoded images
+  /// removes the coincidence entirely.
+  final StatementImages images;
 
   static final _date = DateFormat('yyyy-MM-dd');
   static final _money = NumberFormat('#,##0.00', 'en');
@@ -96,13 +84,7 @@ class StatementDocument extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Image.asset(
-          'assets/images/logo.png',
-          width: 72,
-          height: 72,
-          fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => const SizedBox(width: 72, height: 72),
-        ),
+        _Picture(image: images.logo, size: 72),
         const SizedBox(width: 16),
         Expanded(
           child: Column(
@@ -258,14 +240,7 @@ class StatementDocument extends StatelessWidget {
             ],
           ),
         ),
-        Image.asset(
-          'assets/images/stamp.png',
-          width: 110,
-          height: 110,
-          fit: BoxFit.contain,
-          // A statement without the seal is better than one that invents it.
-          errorBuilder: (_, __, ___) => const SizedBox(width: 110, height: 110),
-        ),
+        _Picture(image: images.stamp, size: 110),
       ],
     );
   }
@@ -282,5 +257,67 @@ class StatementDocument extends StatelessWidget {
       _ => null,
     };
     return value == null ? '' : _money.format(value);
+  }
+}
+
+/// Draws an already-decoded image, or reserves its space when there is none.
+///
+/// A statement without the seal is better than one that invents it, and better
+/// still than one whose layout shifts depending on whether a file loaded.
+class _Picture extends StatelessWidget {
+  const _Picture({required this.image, required this.size});
+
+  final ui.Image? image;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    if (image == null) return SizedBox(width: size, height: size);
+    return RawImage(
+      image: image,
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+    );
+  }
+}
+
+/// The logo and seal, decoded ahead of rasterising the page.
+class StatementImages {
+  const StatementImages({this.logo, this.stamp});
+
+  /// Nothing decoded — the page still lays out, just without its marks.
+  static const StatementImages none = StatementImages();
+
+  final ui.Image? logo;
+  final ui.Image? stamp;
+
+  static const String logoAsset = 'assets/images/logo.png';
+  static const String stampAsset = 'assets/images/stamp.png';
+
+  /// Decodes both, tolerating either being missing.
+  ///
+  /// Each decode is capped: one that never finishes must not leave the export
+  /// button spinning. A statement missing its seal beats one that never
+  /// arrives.
+  static Future<StatementImages> load() async {
+    Future<ui.Image?> decode(String asset) async {
+      try {
+        final data = await rootBundle.load(asset);
+        final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
+        final frame = await codec.getNextFrame();
+        return frame.image;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    try {
+      final results = await Future.wait([decode(logoAsset), decode(stampAsset)])
+          .timeout(const Duration(seconds: 8));
+      return StatementImages(logo: results[0], stamp: results[1]);
+    } catch (_) {
+      return none;
+    }
   }
 }
