@@ -215,7 +215,9 @@ class ProposalsListScreen extends ConsumerWidget {
                 ElevatedButton(
                   onPressed: () {
                     Navigator.of(ctx).pop();
-                    Navigator.of(context).push(
+                    // Above the shell, so the navigation bar does not float
+                    // across the bottom of the document being read.
+                    Navigator.of(context, rootNavigator: true).push(
                       MaterialPageRoute<void>(
                         builder: (_) => PdfViewerWidget(
                           storagePath: storagePath,

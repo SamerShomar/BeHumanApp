@@ -7,7 +7,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:be_human_app/core/domain/attachment.dart';
 import 'package:be_human_app/core/languages/app_localizations.dart';
 import 'package:be_human_app/core/services/file_storage_service.dart';
+import 'package:be_human_app/core/theme/app_colors.dart';
 import 'package:be_human_app/core/widgets/attachment_viewer.dart';
+import 'package:be_human_app/core/widgets/glass.dart';
+import 'package:be_human_app/core/widgets/state_views.dart';
 import 'package:be_human_app/features/admin/presentation/providers/admin_providers.dart';
 import 'package:be_human_app/features/archive/domain/archive_models.dart';
 import 'package:be_human_app/features/archive/presentation/providers/archive_providers.dart';
@@ -43,27 +46,33 @@ class ArchiveFolderScreen extends ConsumerWidget {
             );
 
     return Scaffold(
-      appBar: AppBar(title: Text(folder.name)),
+      // Transparent, so the app-wide gradient behind the router shows through
+      // here as it does on every other screen.
+      backgroundColor: Colors.transparent,
+      appBar: GlassAppBar(title: folder.name),
       body: entries.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('${AppLocalizations.of(context, 'error_generic')}: $e')),
+        loading: () => const LoadingStateView(),
+        error: (e, _) => ErrorStateView(error: e),
         data: (items) => items.isEmpty
-            ? Center(
-                child: Text(
-                  AppLocalizations.of(context, 'no_documents_in_folder'),
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
-                ),
+            ? EmptyStateView(
+                icon: Icons.folder_open_outlined,
+                message: AppLocalizations.of(context, 'no_documents_in_folder'),
               )
             : ListView.builder(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md, AppSpacing.md, AppSpacing.md, 96,
+                ),
                 itemCount: items.length,
                 itemBuilder: (context, i) => _EntryTile(entry: items[i], folder: folder),
               ),
       ),
+      // A plain FAB, not AppFab: this screen opens above the shell, so there
+      // is no navigation bar underneath for the button to clear.
       floatingActionButton: folder.isSystem
           ? null
           : FloatingActionButton(
               onPressed: () => _addDocument(context, ref),
+              tooltip: AppLocalizations.of(context, 'add_document'),
               child: const Icon(Icons.upload_file),
             ),
     );
@@ -171,7 +180,7 @@ class _EntryTile extends ConsumerWidget {
         title: Text(entry.fileName),
         subtitle: entry.subtitle == null ? null : Text(entry.subtitle!),
         onTap: canPreview
-            ? () => Navigator.of(context).push(
+            ? () => Navigator.of(context, rootNavigator: true).push(
                   MaterialPageRoute<void>(
                     builder: (_) => AttachmentViewer(
                       storagePath: entry.storagePath!,

@@ -754,7 +754,9 @@ class _TransactionTile extends ConsumerWidget {
                 ),
                 icon: const Icon(Icons.receipt_long_outlined, size: 16),
                 label: Text(AppLocalizations.of(context, 'view_receipt')),
-                onPressed: () => Navigator.of(context).push(
+                // Above the shell: a document opened inside it is read with
+                // the navigation bar floating across its bottom edge.
+                onPressed: () => Navigator.of(context, rootNavigator: true).push(
                   MaterialPageRoute<void>(
                     builder: (_) => AttachmentViewer(
                       storagePath: receiptPath,

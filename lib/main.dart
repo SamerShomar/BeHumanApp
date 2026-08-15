@@ -58,16 +58,6 @@ class BeHumanApp extends ConsumerStatefulWidget {
 
 class _BeHumanAppState extends ConsumerState<BeHumanApp> {
   @override
-  void initState() {
-    super.initState();
-    // Once the first frame is up, start the countdown after which this launch
-    // counts as healthy and the recovery marker is removed.
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => FirestoreCacheGuard.markLaunchHealthyAfterDelay(),
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
     final isDark = ref.watch(themeProvider);
     final locale = ref.watch(localeProvider);
@@ -95,9 +85,11 @@ class _BeHumanAppState extends ConsumerState<BeHumanApp> {
           // AppBackground sits above the router so every screen shares one
           // gradient backdrop — without something behind them, the frosted
           // panels would just be grey rectangles.
-          builder: (context, child) => PushRegistrar(
-            child: AppBackground(
-              child: InactivityGuard(child: child ?? const SizedBox.shrink()),
+          builder: (context, child) => FirestoreCacheGuardScope(
+            child: PushRegistrar(
+              child: AppBackground(
+                child: InactivityGuard(child: child ?? const SizedBox.shrink()),
+              ),
             ),
           ),
           localeResolutionCallback: (locale, supportedLocales) {

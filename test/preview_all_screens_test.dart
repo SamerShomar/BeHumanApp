@@ -16,6 +16,7 @@ import 'package:be_human_app/core/widgets/glass.dart';
 import 'package:be_human_app/features/admin/presentation/providers/admin_providers.dart';
 import 'package:be_human_app/features/admin/presentation/screens/admin_dashboard_screen.dart';
 import 'package:be_human_app/features/archive/domain/archive_models.dart';
+import 'package:be_human_app/features/archive/presentation/screens/archive_folder_screen.dart';
 import 'package:be_human_app/features/archive/presentation/providers/archive_providers.dart';
 import 'package:be_human_app/features/archive/presentation/screens/archive_screen.dart';
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
@@ -231,6 +232,25 @@ void main() {
         usersProvider.overrideWith((ref) => Stream.value([admin, gaza])),
         notificationFeedProvider.overrideWith((ref) => Stream.value(notifications)),
         archiveFoldersProvider.overrideWith((ref) => Stream.value(folders)),
+        archiveDocumentsProvider.overrideWith((ref, folderId) => Stream.value([
+              {
+                'id': 'd1',
+                'folderId': folderId,
+                'fileName': 'Distribution list March.pdf',
+                'storagePath': 'archive/$folderId/d1.pdf',
+                'uploadedByName': 'Samer Shomar',
+                'date': '2026-08-10T09:00:00.000',
+              },
+              {
+                'id': 'd2',
+                'folderId': folderId,
+                // A photographed receipt, which the archive used to refuse.
+                'fileName': 'IMG_0431.jpg',
+                'storagePath': 'archive/$folderId/d2.jpg',
+                'uploadedByName': 'Mahmoud Abu Eisha',
+                'date': '2026-08-02T09:00:00.000',
+              },
+            ])),
         projectsProvider.overrideWith((ref) => Stream.value(projects)),
         siteContentProvider.overrideWith((ref) => Stream.value(const {
               'mission': 'Be Human is a civil society organisation delivering '
@@ -298,6 +318,29 @@ void main() {
         // than failing on font differences that say nothing about the app.
       }, skip: !Platform.isLinux);
     }
+  }
+
+  // A folder's contents, which open above the shell rather than inside it.
+  // Rendered with no shell here for the same reason: pushed on the shell's
+  // navigator, the floating bar sat on top of this screen's upload button.
+  for (final dark in [false, true]) {
+    testWidgets('archive folder ${dark ? 'dark' : 'light'}', (tester) async {
+      useDeviceViewport(tester);
+      mockConnectivity(online: true);
+
+      await tester.pumpWidget(wrap(
+        const ArchiveFolderScreen(
+          folder: ArchiveFolder(id: 'f1', name: 'Field reports', isSystem: false),
+        ),
+        dark: dark,
+      ));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/ui_archive_folder_${dark ? 'dark' : 'light'}.png'),
+      );
+    }, skip: !Platform.isLinux);
   }
 
   // The home screen's foot — the team and board list — sits well below the

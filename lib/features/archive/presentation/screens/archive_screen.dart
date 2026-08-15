@@ -130,7 +130,12 @@ class _FolderTile extends ConsumerWidget {
       onLongPress: folder.isSystem ? null : () => _confirmDelete(context, ref),
       child: GlassCard(
         padding: const EdgeInsets.all(AppSpacing.md),
-        onTap: () => Navigator.of(context).push(
+        // `rootNavigator`, so the folder opens above the shell rather than
+        // inside it. Pushed on the shell's own navigator it lands in the
+        // Scaffold body, and the floating navigation bar — which is that
+        // Scaffold's bottomNavigationBar — stays painted on top of it, over
+        // the folder's own upload button.
+        onTap: () => Navigator.of(context, rootNavigator: true).push(
           MaterialPageRoute<void>(builder: (_) => ArchiveFolderScreen(folder: folder)),
         ),
         child: Column(

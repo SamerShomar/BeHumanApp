@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:be_human_app/core/security/cache_guard.dart';
 import 'package:be_human_app/core/security/security_settings.dart';
@@ -28,10 +29,27 @@ void main() {
       expect(SecuritySettings.cacheSizeBytes, greaterThan(10 * 1024 * 1024));
     });
 
-    test('a launch is given long enough to get past its first queries', () {
-      // The crash this recovers from happens while the first screen queries
-      // load, which is after the first frame — so the marker must outlive it.
-      expect(FirestoreCacheGuard.settleDelay.inSeconds, greaterThanOrEqualTo(10));
+    testWidgets('a foreground death leaves the marker behind', (tester) async {
+      // The whole point of the guard. The crash fires when a collection is
+      // read, which is whenever somebody opens the screen that reads it —
+      // possibly long after launch. Only backgrounding clears the marker, so
+      // a process killed while the app is on screen is still recorded.
+      await tester.pumpWidget(
+        const FirestoreCacheGuardScope(child: SizedBox.shrink()),
+      );
+
+      final binding = tester.binding;
+      for (final state in [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+      ]) {
+        binding.handleAppLifecycleStateChanged(state);
+      }
+      await tester.pump();
+
+      // Nothing above ends a session: pulling down the notification shade or
+      // taking a call must not be mistaken for the app being put away.
+      expect(tester.takeException(), isNull);
     });
   });
 }
