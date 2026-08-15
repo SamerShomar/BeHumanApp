@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:be_human_app/core/router/app_router.dart';
 import 'package:be_human_app/core/services/push_service.dart';
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
@@ -25,6 +28,45 @@ class _PushRegistrarState extends ConsumerState<PushRegistrar> {
   /// does on every avatar or role change — does not re-request permission.
   String? _registeredUid;
 
+  StreamSubscription<String>? _openedSubscription;
+
+  @override
+  void dispose() {
+    _openedSubscription?.cancel();
+    super.dispose();
+  }
+
+  /// Starts listening for notification taps, once per session.
+  ///
+  /// Without this an alert opened the app and left it wherever it happened to
+  /// be — the point of tapping "a proposal was submitted" is to arrive at the
+  /// proposal, not at the home screen.
+  void _listenForTaps() {
+    if (_openedSubscription != null) return;
+
+    try {
+      final push = ref.read(pushServiceProvider);
+      _openedSubscription = push.openedRoutes.listen(_go);
+
+      // A tap that launched the app from cold has no stream to arrive on; it
+      // is collected once, here.
+      push.initialRoute().then((route) {
+        if (route != null) _go(route);
+      });
+    } catch (_) {
+      // No messaging on this build. In-app notifications are unaffected.
+    }
+  }
+
+  void _go(String route) {
+    if (!mounted) return;
+    // Deferred: a tap can be delivered mid-frame, and the router must not be
+    // driven from inside a build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(routerProvider).go(route);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<AppUser?>>(currentUserStreamProvider, (_, next) {
@@ -46,6 +88,7 @@ class _PushRegistrarState extends ConsumerState<PushRegistrar> {
         } catch (_) {
           // In-app notifications still work; only closed-app alerts are lost.
         }
+        _listenForTaps();
       });
     });
 

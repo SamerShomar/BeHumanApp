@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tint Android applies behind the notification's small icon. Matches
+         AppColors.brand, so an alert looks like it came from this app. -->
+    <color name="notification_tint">#FF4A90D9</color>
+</resources>

@@ -34,10 +34,11 @@ queued and sent when it reconnects.
 
 ## Alerts while the app is closed
 
-This part is **built but not yet switched on**: it needs one Edge Function
-deployed and one secret set, both of which have to be done from a Supabase
-account. Until then everything above still works; the app tries to deliver,
-the call fails, and nothing else changes.
+Everything on the app's side is done. What remains is **one Edge Function
+deployed and one secret set**, both of which have to be done from a Supabase
+account and cannot be done from inside the app. Until then everything above
+still works; the app tries to deliver, the call fails, and nothing else
+changes.
 
 ### Why it cannot all live in the app
 
@@ -112,14 +113,46 @@ Needs a computer, not a phone.
    *Edge Functions → send-notification → Logs* in the Supabase dashboard; a
    successful call returns `{"recipients":N,"delivered":N}`.
 
+### What happens when an alert is tapped
+
+The sender puts the destination in the message payload, and the app navigates
+there — `/proposals` for a proposal, `/financial` for a movement — whether it
+was in the background or not running at all.
+
+Only routes the app actually has are honoured. The payload arrives from outside
+the app, and handing the router an arbitrary string lands the user on the error
+screen; an unrecognised route is dropped and the app simply opens.
+
 ### Platform notes
 
-- **Android** works with the `google-services.json` already in the repo. The
-  app asks for notification permission on first sign-in, which Android 13 and
-  newer require.
+- **Android** works with the `google-services.json` already in the repo.
+  Three things had to be in place for an alert to appear, and now are:
+  - `POST_NOTIFICATIONS` is declared in the manifest. Android 13 and newer
+    will not show the permission dialog at all without it — the request
+    returns "denied" without ever asking, and nothing is ever delivered.
+  - a dedicated status-bar icon (`res/drawable/ic_notification.xml`). Android
+    builds that icon from its alpha channel alone, so a full-colour launcher
+    icon arrives as a solid white square.
+  - a tint colour matching the brand, so an alert looks like it came from
+    this app.
 - **iOS** additionally needs a paid Apple Developer account, an APNs key
   uploaded to Firebase, and `ios/Runner/GoogleService-Info.plist`, which the
   repo does not have yet. Until then iOS does not build at all.
+
+### If nothing arrives
+
+Work down this list — it is ordered by how often each one is the cause.
+
+| Symptom | Cause |
+| --- | --- |
+| `{"error":"FIREBASE_SERVICE_ACCOUNT is not set"}` in the logs | step 4 was skipped, or run before `supabase link` |
+| `{"recipients":0}` | nobody has a device token yet: each person must sign in **once** on the new build and accept the permission prompt |
+| `{"recipients":N,"delivered":0}` | the service-account key is for a different Firebase project than the app |
+| Nothing in the logs at all | the app is not calling out — check `SUPABASE_URL` is passed at build time, since the endpoint is derived from it |
+| Works on one phone, not another | notifications are off for the app in Android settings, or that person never accepted the prompt |
+
+A notification is never sent to the person who caused it. Testing with one
+account on two phones will therefore look like a failure — use two accounts.
 
 ## Firestore rules
 

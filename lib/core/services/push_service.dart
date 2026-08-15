@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
@@ -67,6 +68,55 @@ class PushService {
     } catch (_) {
       // See the note on the class.
     }
+  }
+
+  /// Routes for notifications the user tapped while the app was running in
+  /// the background.
+  ///
+  /// The Edge Function puts the destination in the message's data payload, so
+  /// a tap lands on the proposal or the ledger the alert was about. Anything
+  /// without a usable route is dropped rather than navigated to.
+  Stream<String> get openedRoutes => FirebaseMessaging.onMessageOpenedApp
+      .map(_routeOf)
+      .where((route) => route != null)
+      .cast<String>();
+
+  /// The route of a notification that started the app from cold, if that is
+  /// how this launch began.
+  ///
+  /// Separate from [openedRoutes] because the process did not exist when the
+  /// tap happened: there was no stream to receive it, and the message is
+  /// instead handed over once on startup.
+  Future<String?> initialRoute() async {
+    try {
+      final message = await _messaging.getInitialMessage();
+      return message == null ? null : _routeOf(message);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// A route is only honoured if it is one this app actually has. The payload
+  /// arrives from outside the app, and handing an arbitrary string to the
+  /// router is how a notification ends up on an error screen.
+  static const Set<String> knownRoutes = {
+    '/home',
+    '/proposals',
+    '/financial',
+    '/archive',
+    '/dashboard',
+    '/settings',
+    '/notifications',
+  };
+
+  static String? _routeOf(RemoteMessage message) => routeFrom(message.data);
+
+  /// Split out from [_routeOf] so the filtering can be tested without
+  /// constructing a RemoteMessage, which needs a live Firebase.
+  @visibleForTesting
+  static String? routeFrom(Map<String, dynamic> data) {
+    final route = data['route'];
+    return route is String && knownRoutes.contains(route) ? route : null;
   }
 
   Future<void> _store(String uid, String token) async {

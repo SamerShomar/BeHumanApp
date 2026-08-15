@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:be_human_app/core/services/push_registrar.dart';
+import 'package:be_human_app/core/services/push_service.dart';
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 
@@ -50,5 +51,42 @@ void main() {
 
     expect(find.text('app'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  group('the route a tapped notification opens', () {
+    test('is honoured when the app has that screen', () {
+      // The two the sender actually uses.
+      expect(PushService.routeFrom({'route': '/proposals'}), '/proposals');
+      expect(PushService.routeFrom({'route': '/financial'}), '/financial');
+    });
+
+    test('is dropped when it is anything else', () {
+      // The payload comes from outside the app. Handing the router an
+      // arbitrary string lands the user on the error screen, and a
+      // notification that breaks the app when tapped is worse than one that
+      // merely opens it.
+      expect(PushService.routeFrom({'route': '/nope'}), isNull);
+      expect(PushService.routeFrom({'route': 'https://example.com'}), isNull);
+      expect(PushService.routeFrom({'route': ''}), isNull);
+      expect(PushService.routeFrom({'route': 42}), isNull);
+      expect(PushService.routeFrom(const {}), isNull);
+    });
+
+    test('covers every destination the shell can reach', () {
+      // If a tab is added to the app and not added here, notifications
+      // pointing at it stop navigating — silently, since the route is simply
+      // dropped. This fails instead.
+      for (final route in [
+        '/home',
+        '/proposals',
+        '/financial',
+        '/archive',
+        '/dashboard',
+        '/settings',
+        '/notifications',
+      ]) {
+        expect(PushService.knownRoutes, contains(route), reason: route);
+      }
+    });
   });
 }
