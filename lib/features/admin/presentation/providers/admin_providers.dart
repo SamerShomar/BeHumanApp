@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:be_human_app/core/providers/auth_state_provider.dart';
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 
@@ -12,6 +14,7 @@ import 'package:be_human_app/features/auth/presentation/providers/auth_provider.
 // this small that is cheaper than re-reading them on every navigation.
 
 final proposalsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  if (ref.watch(signedInUidProvider) == null) return Stream.value(const []);
   final firestore = ref.watch(firebaseFirestoreProvider);
   return firestore
       .collection('proposals')
@@ -23,6 +26,7 @@ final proposalsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
 });
 
 final transactionsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  if (ref.watch(signedInUidProvider) == null) return Stream.value(const []);
   final firestore = ref.watch(firebaseFirestoreProvider);
   return firestore
       .collection('transactions')
@@ -52,6 +56,7 @@ final financesProvider = Provider<Map<String, double>>((ref) {
 
 /// Every user profile, for the admin dashboard's member list.
 final usersProvider = StreamProvider<List<AppUser>>((ref) {
+  if (ref.watch(signedInUidProvider) == null) return Stream.value(const []);
   final firestore = ref.watch(firebaseFirestoreProvider);
   return firestore.collection('users').snapshots().map(
         (snapshot) => snapshot.docs

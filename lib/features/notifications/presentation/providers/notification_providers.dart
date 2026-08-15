@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:be_human_app/core/providers/auth_state_provider.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:be_human_app/core/config/app_config.dart';
@@ -17,6 +19,7 @@ const int notificationFeedLimit = 50;
 /// Every notification on record, newest first, regardless of audience.
 final notificationFeedProvider =
     StreamProvider<List<AppNotification>>((ref) {
+  if (ref.watch(signedInUidProvider) == null) return Stream.value(const []);
   final firestore = ref.watch(firebaseFirestoreProvider);
   return firestore
       .collection('notifications')

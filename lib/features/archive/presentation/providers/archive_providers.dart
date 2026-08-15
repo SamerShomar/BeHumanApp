@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:be_human_app/core/providers/auth_state_provider.dart';
+
 import 'package:be_human_app/core/services/file_storage_service.dart';
 import 'package:be_human_app/features/archive/domain/archive_models.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
@@ -9,6 +11,7 @@ import 'package:be_human_app/features/auth/presentation/providers/auth_provider.
 /// folders (proposals, invoices) are not stored here — they are derived from
 /// the proposals and transactions collections and shown alongside these.
 final archiveFoldersProvider = StreamProvider<List<ArchiveFolder>>((ref) {
+  if (ref.watch(signedInUidProvider) == null) return Stream.value(const []);
   final firestore = ref.watch(firebaseFirestoreProvider);
   return firestore.collection('archive_folders').orderBy('name').snapshots().map(
         (snapshot) => snapshot.docs
@@ -20,6 +23,7 @@ final archiveFoldersProvider = StreamProvider<List<ArchiveFolder>>((ref) {
 /// Documents inside one user-created folder.
 final archiveDocumentsProvider =
     StreamProvider.autoDispose.family<List<Map<String, dynamic>>, String>((ref, folderId) {
+  if (ref.watch(signedInUidProvider) == null) return Stream.value(const []);
   final firestore = ref.watch(firebaseFirestoreProvider);
   return firestore
       .collection('archive_documents')

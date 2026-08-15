@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:be_human_app/core/providers/auth_state_provider.dart';
+
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:be_human_app/features/projects/domain/project.dart';
 
@@ -10,6 +12,7 @@ const int projectFeedLimit = 20;
 
 /// The foundation's projects, newest first.
 final projectsProvider = StreamProvider<List<Project>>((ref) {
+  if (ref.watch(signedInUidProvider) == null) return Stream.value(const []);
   final firestore = ref.watch(firebaseFirestoreProvider);
   return firestore
       .collection('projects')
@@ -30,6 +33,7 @@ final projectsProvider = StreamProvider<List<Project>>((ref) {
 /// website was gone on the next launch and no other user ever saw it.
 final siteContentProvider =
     StreamProvider<Map<String, String>>((ref) {
+  if (ref.watch(signedInUidProvider) == null) return Stream.value(const {});
   final firestore = ref.watch(firebaseFirestoreProvider);
   return firestore.collection('site_content').doc('about').snapshots().map(
         (doc) => {
