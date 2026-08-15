@@ -71,22 +71,19 @@ class AdminDashboardScreen extends ConsumerWidget {
               cards: [
                 StatCard(
                   label: AppLocalizations.of(context, 'balance'),
-                  amount: Money.format(totals.balanceIls, StatementCurrency.ils),
-                  secondary: Money.format(totals.balanceEur, StatementCurrency.eur),
+                  amount: Money.format(totals.balanceEur, StatementCurrency.eur),
                   color: AppColors.brand,
                   icon: Icons.account_balance_wallet_outlined,
                 ),
                 StatCard(
                   label: AppLocalizations.of(context, 'revenues'),
-                  amount: Money.format(totals.incomeIls, StatementCurrency.ils),
-                  secondary: Money.format(totals.incomeEur, StatementCurrency.eur),
+                  amount: Money.format(totals.incomeEur, StatementCurrency.eur),
                   color: AppColors.success,
                   icon: Icons.south_west,
                 ),
                 StatCard(
                   label: AppLocalizations.of(context, 'expenses'),
-                  amount: Money.format(totals.expenseIls, StatementCurrency.ils),
-                  secondary: Money.format(totals.expenseEur, StatementCurrency.eur),
+                  amount: Money.format(totals.expenseEur, StatementCurrency.eur),
                   color: AppColors.danger,
                   icon: Icons.north_east,
                 ),

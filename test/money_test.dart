@@ -88,7 +88,8 @@ void main() {
       expect(totals.expenseEur, 500);
       expect(totals.balanceIls, 2000);
       expect(totals.balanceEur, 500);
-      expect(totals.isComplete, isTrue);
+      expect(totals.isIlsComplete, isTrue);
+      expect(totals.isEurComplete, isTrue);
     });
 
     test('counts what it could not convert instead of hiding it', () {
@@ -99,9 +100,12 @@ void main() {
         movement(type: 'expense', amount: 300, currency: 'ILS'),
       ]);
 
-      expect(totals.unconvertible, 1);
-      expect(totals.isComplete, isFalse);
-      // The shekel column is still whole; only the euro one is short.
+      // Counted per currency: the shekel column is whole — that row was
+      // entered in shekels — and only the euro one is short.
+      expect(totals.missingIls, 0);
+      expect(totals.isIlsComplete, isTrue);
+      expect(totals.missingEur, 1);
+      expect(totals.isEurComplete, isFalse);
       expect(totals.expenseIls, 300);
       expect(totals.expenseEur, 0);
     });
@@ -110,7 +114,8 @@ void main() {
       final totals = MoneyTotals.of(const []);
       expect(totals.balanceIls, 0);
       expect(totals.balanceEur, 0);
-      expect(totals.isComplete, isTrue);
+      expect(totals.isIlsComplete, isTrue);
+      expect(totals.isEurComplete, isTrue);
     });
   });
 

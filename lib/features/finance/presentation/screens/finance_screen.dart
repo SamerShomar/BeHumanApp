@@ -92,22 +92,19 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
               cards: [
                 StatCard(
                   label: AppLocalizations.of(context, 'balance'),
-                  amount: Money.format(totals.balanceIls, StatementCurrency.ils),
-                  secondary: Money.format(totals.balanceEur, StatementCurrency.eur),
+                  amount: Money.format(totals.balanceEur, StatementCurrency.eur),
                   color: AppColors.brand,
                   icon: Icons.account_balance_wallet_outlined,
                 ),
                 StatCard(
                   label: AppLocalizations.of(context, 'incoming'),
-                  amount: Money.format(totals.incomeIls, StatementCurrency.ils),
-                  secondary: Money.format(totals.incomeEur, StatementCurrency.eur),
+                  amount: Money.format(totals.incomeEur, StatementCurrency.eur),
                   color: AppColors.success,
                   icon: Icons.south_west,
                 ),
                 StatCard(
                   label: AppLocalizations.of(context, 'outgoing'),
-                  amount: Money.format(totals.expenseIls, StatementCurrency.ils),
-                  secondary: Money.format(totals.expenseEur, StatementCurrency.eur),
+                  amount: Money.format(totals.expenseEur, StatementCurrency.eur),
                   color: AppColors.danger,
                   icon: Icons.north_east,
                 ),
@@ -662,15 +659,12 @@ class _TransactionTile extends ConsumerWidget {
                 children: [
                   // Both currencies, every row: the shekel figure is what was
                   // spent on the ground, the euro one is what the donors gave.
-                  Text(
-                    money.signedIls(isIncome: isIncome),
-                    style: theme.textTheme.titleSmall?.copyWith(color: color),
-                  ),
+                  // Euro on screen; the printed statement is the shekel
+                  // document. One currency per surface, so nobody has to
+                  // work out which of two figures they are looking at.
                   Text(
                     money.signedEur(isIncome: isIncome),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: color.withOpacity(0.85),
-                    ),
+                    style: theme.textTheme.titleSmall?.copyWith(color: color),
                   ),
                 ],
               ),

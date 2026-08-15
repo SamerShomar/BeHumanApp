@@ -129,7 +129,8 @@ class MoneyTotals {
     required this.incomeEur,
     required this.expenseIls,
     required this.expenseEur,
-    required this.unconvertible,
+    required this.missingIls,
+    required this.missingEur,
   });
 
   final double incomeIls;
@@ -137,27 +138,34 @@ class MoneyTotals {
   final double expenseIls;
   final double expenseEur;
 
-  /// How many movements could not be expressed in both currencies.
+  /// How many movements are missing from each column.
   ///
-  /// Surfaced rather than swallowed: a total that quietly omits rows is worse
-  /// than one that says how many it left out.
-  final int unconvertible;
+  /// Counted per currency because the two are read in different places: the
+  /// printed statement is in shekels and the app is in euro, so a row that is
+  /// short in one is not necessarily short in the other. Surfaced rather than
+  /// swallowed — a total that quietly omits rows is worse than one that says
+  /// how many it left out.
+  final int missingIls;
+  final int missingEur;
 
   double get balanceIls => incomeIls - expenseIls;
   double get balanceEur => incomeEur - expenseEur;
 
-  bool get isComplete => unconvertible == 0;
+  bool get isIlsComplete => missingIls == 0;
+  bool get isEurComplete => missingEur == 0;
 
   static MoneyTotals of(List<Map<String, dynamic>> transactions) {
     var incomeIls = 0.0;
     var incomeEur = 0.0;
     var expenseIls = 0.0;
     var expenseEur = 0.0;
-    var unconvertible = 0;
+    var missingIls = 0;
+    var missingEur = 0;
 
     for (final transaction in transactions) {
       final money = Money.fromTransaction(transaction);
-      if (!money.isFullyConvertible) unconvertible++;
+      if (money.ils == null) missingIls++;
+      if (money.eur == null) missingEur++;
 
       final isIncome = transaction['type'] == 'income';
       if (isIncome) {
@@ -174,7 +182,8 @@ class MoneyTotals {
       incomeEur: incomeEur,
       expenseIls: expenseIls,
       expenseEur: expenseEur,
-      unconvertible: unconvertible,
+      missingIls: missingIls,
+      missingEur: missingEur,
     );
   }
 }

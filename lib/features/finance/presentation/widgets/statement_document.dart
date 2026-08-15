@@ -82,29 +82,36 @@ class StatementDocument extends StatelessWidget {
 
   Widget _header(BuildContext context) {
     // Centred, stacked: the mark leads, then the organisation, then what the
-    // document is. A logo pinned to one edge reads as a letterhead; a printed
-    // record of money reads better as a title page.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        _Picture(image: images.logo, size: 84),
-        const SizedBox(height: 10),
-        Text(
-          AppLocalizations.of(context, 'app_title'),
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          AppLocalizations.of(context, 'invoices_title'),
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
+    // document is.
+    //
+    // The width matters. The page's outer column aligns to the start, so this
+    // block shrank to the width of its widest line and centred the logo inside
+    // *that* — leaving it visibly left of the page's centre. Taking the full
+    // width is what makes "centred" mean centred on the page.
+    return SizedBox(
+      width: double.infinity,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _Picture(image: images.logo, size: 84),
+          const SizedBox(height: 10),
+          Text(
+            AppLocalizations.of(context, 'app_title'),
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
-        ),
-      ],
+          const SizedBox(height: 4),
+          Text(
+            AppLocalizations.of(context, 'invoices_title'),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -149,10 +156,9 @@ class StatementDocument extends StatelessWidget {
         border: TableBorder(horizontalInside: border, top: border, bottom: border),
         columnWidths: const {
           0: FlexColumnWidth(2.2),
-          1: FlexColumnWidth(4.4),
-          2: FlexColumnWidth(1.8),
-          3: FlexColumnWidth(2.4),
-          4: FlexColumnWidth(2.4),
+          1: FlexColumnWidth(5.2),
+          2: FlexColumnWidth(2),
+          3: FlexColumnWidth(2.6),
         },
         children: [
           TableRow(
@@ -162,7 +168,6 @@ class StatementDocument extends StatelessWidget {
               _cell(AppLocalizations.of(context, 'description_label'), style: headerStyle),
               _cell(AppLocalizations.of(context, 'type_label'), style: headerStyle),
               _cell(AppLocalizations.of(context, 'amount_ils'), style: headerStyle),
-              _cell(AppLocalizations.of(context, 'amount_eur'), style: headerStyle),
             ],
           ),
           for (final t in transactions)
@@ -172,11 +177,15 @@ class StatementDocument extends StatelessWidget {
     );
   }
 
-  /// One movement, shown in both currencies.
+  /// One movement, in shekels.
   ///
-  /// A cell reads "—" when the rate needed to convert it was never recorded.
-  /// That is deliberate: a printed financial record must not carry a figure
-  /// nobody chose a rate for.
+  /// The printed statement is a shekel document — it is what the money on the
+  /// ground actually was. The app shows euro; converting between the two is
+  /// what the recorded rate is for.
+  ///
+  /// A cell reads "—" when the rate needed was never recorded. That is
+  /// deliberate: a printed financial record must not carry a figure nobody
+  /// chose a rate for.
   TableRow _movementRow(BuildContext context, Map<String, dynamic> t) {
     final money = Money.fromTransaction(t);
 
@@ -189,7 +198,6 @@ class StatementDocument extends StatelessWidget {
           t['type'] == 'income' ? 'income_label' : 'expense_label',
         )),
         _cell(money.formattedIls),
-        _cell(money.formattedEur),
       ],
     );
   }
@@ -200,7 +208,7 @@ class StatementDocument extends StatelessWidget {
       );
 
   Widget _totals(BuildContext context, MoneyTotals totals) {
-    Widget line(String key, double ils, double eur, {bool bold = false}) {
+    Widget line(String key, double value, {bool bold = false}) {
       final style = TextStyle(
         fontWeight: bold ? FontWeight.bold : FontWeight.normal,
       );
@@ -208,64 +216,59 @@ class StatementDocument extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 3),
         child: Row(
           children: [
-            Expanded(
-              flex: 3,
-              child: Text(AppLocalizations.of(context, key), style: style),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text(
-                Money.format(ils, StatementCurrency.ils),
-                textAlign: TextAlign.end,
-                style: style,
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text(
-                Money.format(eur, StatementCurrency.eur),
-                textAlign: TextAlign.end,
-                style: style,
-              ),
+            Expanded(child: Text(AppLocalizations.of(context, key), style: style)),
+            Text(
+              Money.format(value, StatementCurrency.ils),
+              textAlign: TextAlign.end,
+              style: style,
             ),
           ],
         ),
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        SizedBox(
-          width: 400,
+    // Aligned through the full page width, not just its own. A column that
+    // shrinks to its content and is then told to align "end" ends up wherever
+    // the parent puts the shrunken box — which is how this block, and the
+    // header before it, drifted to the wrong side of the page.
+    //
+    // `AlignmentDirectional` rather than a fixed side, so an Arabic statement
+    // puts its totals on the left where they belong.
+    return Align(
+      alignment: AlignmentDirectional.centerEnd,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          SizedBox(
+            width: 300,
           child: Column(
             children: [
-              line('incoming', totals.incomeIls, totals.incomeEur),
-              line('outgoing', totals.expenseIls, totals.expenseEur),
+              line('incoming', totals.incomeIls),
+              line('outgoing', totals.expenseIls),
               Divider(color: const Color(0xFF12233A).withOpacity(0.2)),
-              line('balance_current', totals.balanceIls, totals.balanceEur,
-                  bold: true),
+              line('balance_current', totals.balanceIls, bold: true),
             ],
           ),
         ),
-        // Said out loud rather than hidden in a footnote: a total that leaves
-        // rows out must declare how many, or it is simply wrong.
-        if (!totals.isComplete) ...[
-          const SizedBox(height: 6),
-          SizedBox(
-            width: 400,
-            child: Text(
-              AppLocalizations.of(context, 'totals_missing_rate',
-                  {'count': '${totals.unconvertible}'}),
-              textAlign: TextAlign.end,
-              style: TextStyle(
-                fontSize: 11,
-                color: const Color(0xFF12233A).withOpacity(0.6),
+        // Said out loud rather than hidden: a total that leaves rows out must
+        // declare how many, or it is simply wrong.
+          if (!totals.isIlsComplete) ...[
+            const SizedBox(height: 6),
+            SizedBox(
+              width: 300,
+              child: Text(
+                AppLocalizations.of(context, 'totals_missing_rate',
+                    {'count': '${totals.missingIls}'}),
+                textAlign: TextAlign.end,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: const Color(0xFF12233A).withOpacity(0.6),
+                ),
               ),
             ),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 
