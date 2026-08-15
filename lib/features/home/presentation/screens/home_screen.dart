@@ -13,6 +13,7 @@ import 'package:be_human_app/core/widgets/status_chip.dart';
 import 'package:be_human_app/features/admin/presentation/providers/admin_providers.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:be_human_app/features/auth/presentation/widgets/user_avatar.dart';
+import 'package:be_human_app/features/home/presentation/widgets/team_section.dart';
 import 'package:be_human_app/features/notifications/presentation/widgets/notification_bell.dart';
 import 'package:be_human_app/features/projects/presentation/providers/project_providers.dart';
 import 'package:be_human_app/features/projects/presentation/widgets/project_card.dart';
@@ -46,11 +47,16 @@ class HomeScreen extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                 child: Row(
                   children: [
+                    // Tapping your own face is the shortest route to your own
+                    // account, and it is where people reach for it first.
                     if (user.valueOrNull != null)
-                      UserAvatar(
-                        photoPath: user.valueOrNull!.photoPath,
-                        name: user.valueOrNull!.name,
-                        radius: 22,
+                      GestureDetector(
+                        onTap: () => context.go('/settings'),
+                        child: UserAvatar(
+                          photoPath: user.valueOrNull!.photoPath,
+                          name: user.valueOrNull!.name,
+                          radius: 22,
+                        ),
                       ),
                     const SizedBox(width: AppSpacing.md),
                     Expanded(
@@ -220,6 +226,9 @@ class HomeScreen extends ConsumerWidget {
                   );
                 },
               ),
+
+              const SizedBox(height: AppSpacing.lg),
+              const TeamSection(),
             ],
           ),
         ),

@@ -24,7 +24,8 @@ import 'package:be_human_app/features/auth/presentation/providers/auth_provider.
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 import 'package:be_human_app/features/notifications/presentation/providers/notification_providers.dart';
 import 'package:be_human_app/features/notifications/presentation/widgets/notification_bell.dart';
-import 'package:be_human_app/features/proposals/presentation/widgets/pdf_viewer_widget.dart';
+import 'package:be_human_app/core/domain/attachment.dart';
+import 'package:be_human_app/core/widgets/attachment_viewer.dart';
 
 class FinanceScreen extends ConsumerStatefulWidget {
   const FinanceScreen({super.key});
@@ -314,14 +315,29 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
     super.dispose();
   }
 
+  /// Picks the transfer notice.
+  ///
+  /// A scan or a photo, both accepted: outside an office a transfer notice is
+  /// usually a picture of a screen or a slip, and requiring a PDF meant
+  /// requiring somebody to convert one before they could record a payment.
   Future<void> _pickReceipt() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['pdf'],
+      allowedExtensions: Attachment.allowedExtensions,
       withData: true,
     );
     if (result == null || result.files.isEmpty) return;
-    setState(() => _receipt = result.files.first);
+
+    final file = result.files.first;
+    if (!Attachment.isAllowed(file.name)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context, 'archive_file_types'))),
+      );
+      return;
+    }
+
+    setState(() => _receipt = file);
   }
 
   /// The currency this entry will be saved with, defaulting to the member's
@@ -377,7 +393,11 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
 
       final receiptPath = await ref
           .read(fileStorageServiceProvider)
-          .uploadInvoicePdf(transactionId: id, bytes: bytes);
+          .uploadInvoiceAttachment(
+            transactionId: id,
+            bytes: bytes,
+            fileName: _receipt!.name,
+          );
 
       await ref.read(firestoreAdminServiceProvider).addTransaction({
         'id': id,
@@ -594,7 +614,18 @@ class _ReceiptField extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(chosen ? Icons.check_circle_outline : Icons.upload_file, size: 20, color: color),
+            Icon(
+              switch (receipt == null
+                  ? null
+                  : Attachment.kindOf(receipt!.name)) {
+                AttachmentKind.pdf => Icons.picture_as_pdf_outlined,
+                AttachmentKind.image => Icons.image_outlined,
+                AttachmentKind.other => Icons.check_circle_outline,
+                null => Icons.upload_file,
+              },
+              size: 20,
+              color: color,
+            ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Column(
@@ -725,8 +756,9 @@ class _TransactionTile extends ConsumerWidget {
                 label: Text(AppLocalizations.of(context, 'view_receipt')),
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => PdfViewerWidget(
+                    builder: (_) => AttachmentViewer(
                       storagePath: receiptPath,
+                      fileName: transaction['fileName'] as String? ?? '',
                       title: transaction['description'] as String?,
                     ),
                   ),

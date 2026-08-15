@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:be_human_app/core/config/app_config.dart';
+import 'package:be_human_app/core/domain/attachment.dart';
 import 'package:be_human_app/core/languages/app_localizations.dart';
 
 /// Raised when a file cannot be stored or read back.
@@ -64,22 +65,35 @@ class FileStorageService {
 
   /// Invoices share the bucket but live under their own prefix, so a listing
   /// or a policy can target one kind of document without the other.
-  Future<String> uploadInvoicePdf({
+  ///
+  /// The extension is kept: a transfer notice is as often a photo as a scan,
+  /// and the stored object has to say which it is — both the signed link and
+  /// the in-app viewer decide what to do from it.
+  Future<String> uploadInvoiceAttachment({
     required String transactionId,
     required Uint8List bytes,
+    required String fileName,
   }) {
-    return _upload('invoices/$transactionId.pdf', bytes);
+    final ext = Attachment.extensionOf(fileName);
+    return _upload(
+      'invoices/$transactionId${ext.isEmpty ? '' : '.$ext'}',
+      bytes,
+      contentType: Attachment.contentTypeOf(fileName),
+    );
   }
 
   /// Uploads a file into a user-created archive folder.
   Future<String> uploadArchiveDocument({
     required String folderId,
     required String documentId,
+    required String fileName,
     required List<int> bytes,
   }) {
+    final ext = Attachment.extensionOf(fileName);
     return _upload(
-      'archive/$folderId/$documentId',
+      'archive/$folderId/$documentId${ext.isEmpty ? '' : '.$ext'}',
       Uint8List.fromList(bytes),
+      contentType: Attachment.contentTypeOf(fileName),
     );
   }
 

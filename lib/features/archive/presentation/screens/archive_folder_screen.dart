@@ -1,14 +1,18 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:be_human_app/core/domain/attachment.dart';
 import 'package:be_human_app/core/languages/app_localizations.dart';
+import 'package:be_human_app/core/services/file_storage_service.dart';
+import 'package:be_human_app/core/widgets/attachment_viewer.dart';
 import 'package:be_human_app/features/admin/presentation/providers/admin_providers.dart';
 import 'package:be_human_app/features/archive/domain/archive_models.dart';
 import 'package:be_human_app/features/archive/presentation/providers/archive_providers.dart';
 import 'package:be_human_app/features/archive/presentation/widgets/archive_actions.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
-import 'package:be_human_app/features/proposals/presentation/widgets/pdf_viewer_widget.dart';
 
 /// One folder's contents.
 ///
@@ -94,12 +98,14 @@ class ArchiveFolderScreen extends ConsumerWidget {
   Future<void> _addDocument(BuildContext context, WidgetRef ref) async {
     final messenger = ScaffoldMessenger.of(context);
     final addedMessage = AppLocalizations.of(context, 'document_added');
+    final wrongTypeMessage = AppLocalizations.of(context, 'archive_file_types');
+    final unreadableMessage = AppLocalizations.of(context, 'file_not_loaded');
     final user = ref.read(currentUserStreamProvider).valueOrNull;
     if (user == null) return;
 
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['pdf'],
+      allowedExtensions: Attachment.allowedExtensions,
       withData: true,
     );
     if (result == null || result.files.isEmpty) return;
@@ -107,15 +113,21 @@ class ArchiveFolderScreen extends ConsumerWidget {
 
     // The picker filter is a hint the platform may not honour — some file
     // managers let any type through — so the extension is checked here too.
-    if (!looksLikePdf(file.name)) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context, 'archive_pdf_only'))),
-      );
+    if (!Attachment.isAllowed(file.name)) {
+      messenger.showSnackBar(SnackBar(content: Text(wrongTypeMessage)));
       return;
     }
 
-    final bytes = file.bytes;
-    if (bytes == null) return;
+    // `withData` is best-effort. Android hands back a path and no bytes for
+    // anything large, and reading the field alone made an upload of a big
+    // scan or a full-resolution photo do nothing at all, silently — which is
+    // exactly what "it only ever creates folders" looked like from outside.
+    final bytes = file.bytes ??
+        (file.path != null ? await File(file.path!).readAsBytes() : null);
+    if (bytes == null) {
+      messenger.showSnackBar(SnackBar(content: Text(unreadableMessage)));
+      return;
+    }
 
     try {
       await ref.read(archiveServiceProvider).addDocument(
@@ -126,6 +138,8 @@ class ArchiveFolderScreen extends ConsumerWidget {
             uploaderName: user.name,
           );
       messenger.showSnackBar(SnackBar(content: Text(addedMessage)));
+    } on FileStorageException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.localized(context))));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('$e')));
     }
@@ -141,19 +155,27 @@ class _EntryTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    // Only PDFs are ever stored, so anything with a file can be previewed.
-    final canPreview = entry.isOpenable;
+    final kind = Attachment.kindOf(
+      entry.fileName.isEmpty ? (entry.storagePath ?? '') : entry.fileName,
+    );
+    final canPreview = entry.isOpenable && kind.isViewable;
 
     return Card(
       child: ListTile(
-        leading: const Icon(Icons.insert_drive_file),
+        // The icon says which of the two a row is before it is opened.
+        leading: Icon(switch (kind) {
+          AttachmentKind.pdf => Icons.picture_as_pdf_outlined,
+          AttachmentKind.image => Icons.image_outlined,
+          AttachmentKind.other => Icons.insert_drive_file_outlined,
+        }),
         title: Text(entry.fileName),
         subtitle: entry.subtitle == null ? null : Text(entry.subtitle!),
         onTap: canPreview
             ? () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => PdfViewerWidget(
+                    builder: (_) => AttachmentViewer(
                       storagePath: entry.storagePath!,
+                      fileName: entry.fileName,
                       title: entry.fileName,
                     ),
                   ),

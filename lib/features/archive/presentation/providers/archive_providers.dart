@@ -21,6 +21,12 @@ final archiveFoldersProvider = StreamProvider<List<ArchiveFolder>>((ref) {
 });
 
 /// Documents inside one user-created folder.
+///
+/// Filtered on the server, sorted here. Firestore needs a composite index for
+/// a `where` and an `orderBy` on different fields, and without it the query
+/// does not return empty — it fails, which is why every folder anyone opened
+/// showed an error instead of its (usually empty) contents. Sorting a single
+/// folder's documents in Dart costs nothing and needs no index to exist.
 final archiveDocumentsProvider =
     StreamProvider.autoDispose.family<List<Map<String, dynamic>>, String>((ref, folderId) {
   if (ref.watch(signedInUidProvider) == null) return Stream.value(const []);
@@ -28,9 +34,20 @@ final archiveDocumentsProvider =
   return firestore
       .collection('archive_documents')
       .where('folderId', isEqualTo: folderId)
-      .orderBy('date', descending: true)
       .snapshots()
-      .map((snapshot) => snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
+      .map((snapshot) {
+    final docs = snapshot.docs
+        .map((doc) => {'id': doc.id, ...doc.data()})
+        .toList()
+      ..sort((a, b) {
+        // Newest first. A document with no date sorts last rather than
+        // throwing the whole list into an error.
+        final left = '${a['date'] ?? ''}';
+        final right = '${b['date'] ?? ''}';
+        return right.compareTo(left);
+      });
+    return docs;
+  });
 });
 
 /// Creates and removes folders and documents in the archive.
@@ -93,6 +110,7 @@ class ArchiveService {
     final storagePath = await _storage.uploadArchiveDocument(
       folderId: folderId,
       documentId: id,
+      fileName: fileName,
       bytes: bytes,
     );
 

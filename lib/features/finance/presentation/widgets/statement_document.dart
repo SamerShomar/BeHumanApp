@@ -138,7 +138,6 @@ class StatementDocument extends StatelessWidget {
   }
 
   Widget _table(BuildContext context) {
-    const headerStyle = TextStyle(fontWeight: FontWeight.bold, fontSize: 11);
     final border = BorderSide(color: const Color(0xFF12233A).withOpacity(0.15));
 
     if (transactions.isEmpty) {
@@ -154,20 +153,28 @@ class StatementDocument extends StatelessWidget {
       alignment: Alignment.topCenter,
       child: Table(
         border: TableBorder(horizontalInside: border, top: border, bottom: border),
+        // Retuned for the fifth column. The description gives up the width the
+        // euro column needs — a description can wrap onto a second line and
+        // still be read, whereas a wrapped figure cannot.
         columnWidths: const {
-          0: FlexColumnWidth(2.2),
-          1: FlexColumnWidth(5.2),
-          2: FlexColumnWidth(2),
-          3: FlexColumnWidth(2.6),
+          0: FlexColumnWidth(2.1),
+          1: FlexColumnWidth(4.2),
+          2: FlexColumnWidth(1.7),
+          3: FlexColumnWidth(2.3),
+          4: FlexColumnWidth(2.3),
         },
         children: [
           TableRow(
             decoration: BoxDecoration(color: const Color(0xFF12233A).withOpacity(0.06)),
             children: [
-              _cell(AppLocalizations.of(context, 'date_label'), style: headerStyle),
-              _cell(AppLocalizations.of(context, 'description_label'), style: headerStyle),
-              _cell(AppLocalizations.of(context, 'type_label'), style: headerStyle),
-              _cell(AppLocalizations.of(context, 'amount_ils'), style: headerStyle),
+              _cell(AppLocalizations.of(context, 'date_label'), style: _headerStyle),
+              _cell(AppLocalizations.of(context, 'description_label'),
+                  style: _headerStyle),
+              _cell(AppLocalizations.of(context, 'type_label'), style: _headerStyle),
+              _cell(AppLocalizations.of(context, 'amount_ils'),
+                  style: _headerStyle, numeric: true),
+              _cell(AppLocalizations.of(context, 'amount_eur'),
+                  style: _headerStyle, numeric: true),
             ],
           ),
           for (final t in transactions)
@@ -177,11 +184,12 @@ class StatementDocument extends StatelessWidget {
     );
   }
 
-  /// One movement, in shekels.
+  /// One movement, in both currencies.
   ///
-  /// The printed statement is a shekel document — it is what the money on the
-  /// ground actually was. The app shows euro; converting between the two is
-  /// what the recorded rate is for.
+  /// Shekels are what the money on the ground actually was; euro is what the
+  /// donors gave. A statement that carries only one of the two has to be read
+  /// with a calculator beside it, so both are printed and the conversion is
+  /// the recorded rate's, not the reader's.
   ///
   /// A cell reads "—" when the rate needed was never recorded. That is
   /// deliberate: a printed financial record must not carry a figure nobody
@@ -197,33 +205,60 @@ class StatementDocument extends StatelessWidget {
           context,
           t['type'] == 'income' ? 'income_label' : 'expense_label',
         )),
-        _cell(money.formattedIls),
+        _cell(money.formattedIls, numeric: true),
+        _cell(money.formattedEur, numeric: true),
       ],
     );
   }
 
-  Widget _cell(String text, {TextStyle? style}) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-        child: Text(text, style: style),
-      );
+  static const _headerStyle =
+      TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5);
 
+  /// One table cell.
+  ///
+  /// A figure is set left-to-right and aligned to the end of its column, no
+  /// matter the document's language. Amounts are written the same way in
+  /// Arabic as in English — "1,250.00 ₪", digits first — and letting an RTL
+  /// paragraph reorder them moves the symbol to the wrong side and breaks the
+  /// column of decimal points that makes a table of figures readable at all.
+  Widget _cell(String text, {TextStyle? style, bool numeric = false}) {
+    final content = Text(
+      text,
+      textAlign: numeric ? TextAlign.end : TextAlign.start,
+      style: (style ?? const TextStyle()).copyWith(fontSize: style?.fontSize ?? 11.5),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      child: numeric
+          // `ui.` qualified: intl exports a TextDirection of its own, and the
+          // bare name resolves to that one here.
+          ? Directionality(textDirection: ui.TextDirection.ltr, child: content)
+          : content,
+    );
+  }
+
+  /// The three summary figures, in both currencies.
+  ///
+  /// Laid out as a small table with the same two amount columns as the ledger
+  /// above it, so a total sits directly under the column it totals rather than
+  /// beside a label in a different shape.
   Widget _totals(BuildContext context, MoneyTotals totals) {
-    Widget line(String key, double value, {bool bold = false}) {
+    final divider = BorderSide(color: const Color(0xFF12233A).withOpacity(0.25));
+
+    TableRow line(String key, double ils, double eur, {bool bold = false}) {
       final style = TextStyle(
         fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+        fontSize: 12,
       );
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: Row(
-          children: [
-            Expanded(child: Text(AppLocalizations.of(context, key), style: style)),
-            Text(
-              Money.format(value, StatementCurrency.ils),
-              textAlign: TextAlign.end,
-              style: style,
-            ),
-          ],
-        ),
+      return TableRow(
+        children: [
+          _cell(AppLocalizations.of(context, key), style: style),
+          _cell(Money.format(ils, StatementCurrency.ils),
+              style: style, numeric: true),
+          _cell(Money.format(eur, StatementCurrency.eur),
+              style: style, numeric: true),
+        ],
       );
     }
 
@@ -236,38 +271,53 @@ class StatementDocument extends StatelessWidget {
     // puts its totals on the left where they belong.
     return Align(
       alignment: AlignmentDirectional.centerEnd,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          SizedBox(
-            width: 300,
-          child: Column(
-            children: [
-              line('incoming', totals.incomeIls),
-              line('outgoing', totals.expenseIls),
-              Divider(color: const Color(0xFF12233A).withOpacity(0.2)),
-              line('balance_current', totals.balanceIls, bold: true),
-            ],
-          ),
-        ),
-        // Said out loud rather than hidden: a total that leaves rows out must
-        // declare how many, or it is simply wrong.
-          if (!totals.isIlsComplete) ...[
-            const SizedBox(height: 6),
-            SizedBox(
-              width: 300,
-              child: Text(
-                AppLocalizations.of(context, 'totals_missing_rate',
-                    {'count': '${totals.missingIls}'}),
+      child: SizedBox(
+        width: 400,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Table(
+              columnWidths: const {
+                0: FlexColumnWidth(3),
+                1: FlexColumnWidth(2.4),
+                2: FlexColumnWidth(2.4),
+              },
+              children: [
+                line('incoming', totals.incomeIls, totals.incomeEur),
+                line('outgoing', totals.expenseIls, totals.expenseEur),
+              ],
+            ),
+            Divider(color: divider.color, thickness: divider.width, height: 10),
+            Table(
+              columnWidths: const {
+                0: FlexColumnWidth(3),
+                1: FlexColumnWidth(2.4),
+                2: FlexColumnWidth(2.4),
+              },
+              children: [
+                line('balance_current', totals.balanceIls, totals.balanceEur,
+                    bold: true),
+              ],
+            ),
+            // Said out loud rather than hidden: a total that leaves rows out
+            // must declare how many, or it is simply wrong. Counted per
+            // column, because a row can be complete in shekels and missing
+            // from euro — that is precisely what an unrecorded rate does.
+            if (!totals.isIlsComplete || !totals.isEurComplete) ...[
+              const SizedBox(height: 6),
+              Text(
+                AppLocalizations.of(context, 'totals_missing_rate', {
+                  'count': '${totals.missingIls > totals.missingEur ? totals.missingIls : totals.missingEur}',
+                }),
                 textAlign: TextAlign.end,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 10.5,
                   color: const Color(0xFF12233A).withOpacity(0.6),
                 ),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

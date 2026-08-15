@@ -299,4 +299,29 @@ void main() {
       }, skip: !Platform.isLinux);
     }
   }
+
+  // The home screen's foot — the team and board list — sits well below the
+  // first screenful, so the golden above never shows it. Scrolled to the
+  // bottom here, because a section nobody's test ever looks at is a section
+  // that quietly rots.
+  for (final dark in [false, true]) {
+    testWidgets('home bottom ${dark ? 'dark' : 'light'}', (tester) async {
+      useDeviceViewport(tester);
+      mockConnectivity(online: true);
+
+      await tester.pumpWidget(wrap(const HomeScreen(), dark: dark, shellLocation: '/home'));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      await tester.drag(
+        find.byType(SingleChildScrollView).first,
+        const Offset(0, -2000),
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/ui_home_bottom_${dark ? 'dark' : 'light'}.png'),
+      );
+    }, skip: !Platform.isLinux);
+  }
 }

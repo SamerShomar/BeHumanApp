@@ -46,8 +46,3 @@ Future<void> downloadArchiveFile(
     );
   }
 }
-
-/// True when [fileName] looks like a PDF, the only type this app can preview
-/// in place — anything else offered by an archive folder must be downloaded
-/// to be opened, since there is no in-app viewer for arbitrary file types.
-bool looksLikePdf(String fileName) => fileName.toLowerCase().endsWith('.pdf');
