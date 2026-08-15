@@ -37,14 +37,24 @@ class SecuritySettings {
   /// this back to `true` to require a password on every launch.
   static const bool requireLoginOnLaunch = false;
 
+  /// Ceiling on the offline cache.
+  ///
+  /// It used to be `CACHE_SIZE_UNLIMITED`, which switches Firestore's
+  /// garbage collector off entirely — the cache only ever grew. A bound puts
+  /// the collector back to work, evicting documents that are already on the
+  /// server. Pending offline *writes* are never evicted by it, so an outage
+  /// still holds everything it needs.
+  ///
+  /// 80 MB is far more than this app's records occupy and small enough that
+  /// the cache cannot quietly become a liability.
+  static const int cacheSizeBytes = 80 * 1024 * 1024;
+
   /// Applies settings that must be in place before Firestore or the router
   /// first read their state.
   static Future<void> apply() async {
     FirebaseFirestore.instance.settings = const Settings(
       persistenceEnabled: allowOfflineCache,
-      // Writes made offline sit in this cache until the network returns, so it
-      // must not evict them during a long outage.
-      cacheSizeBytes: allowOfflineCache ? Settings.CACHE_SIZE_UNLIMITED : null,
+      cacheSizeBytes: allowOfflineCache ? cacheSizeBytes : null,
     );
 
     if (requireLoginOnLaunch) {

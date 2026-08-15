@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:be_human_app/core/config/app_config.dart';
+import 'package:be_human_app/core/security/cache_guard.dart';
 import 'package:be_human_app/core/security/inactivity_guard.dart';
 import 'package:be_human_app/core/services/push_registrar.dart';
 import 'package:be_human_app/core/widgets/glass.dart';
@@ -21,6 +22,12 @@ Future<void> main() async {
   // Android reads its configuration from android/app/google-services.json and
   // iOS from ios/Runner/GoogleService-Info.plist.
   await Firebase.initializeApp();
+
+  // Before anything else touches Firestore. A cache row that outgrows
+  // Android's CursorWindow makes every query crash the process natively, on
+  // every launch, until the cache is wiped — so a launch that never completed
+  // is treated as a corrupt cache and cleared here.
+  await FirestoreCacheGuard.recoverIfPreviousLaunchFailed();
 
   // Must run before Firestore is touched: it decides whether documents are
   // allowed to persist unencrypted on the device.
@@ -42,11 +49,26 @@ Future<void> main() async {
   );
 }
 
-class BeHumanApp extends ConsumerWidget {
+class BeHumanApp extends ConsumerStatefulWidget {
   const BeHumanApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<BeHumanApp> createState() => _BeHumanAppState();
+}
+
+class _BeHumanAppState extends ConsumerState<BeHumanApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Once the first frame is up, start the countdown after which this launch
+    // counts as healthy and the recovery marker is removed.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => FirestoreCacheGuard.markLaunchHealthyAfterDelay(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isDark = ref.watch(themeProvider);
     final locale = ref.watch(localeProvider);
     final router = ref.watch(routerProvider);
