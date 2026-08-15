@@ -298,7 +298,10 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
   final _descCtrl = TextEditingController();
   final _rateCtrl = TextEditingController();
   String _type = 'income';
-  StatementCurrency _currency = StatementCurrency.ils;
+
+  /// Set from the signed-in member's team on the first build, then left alone
+  /// so a deliberate change is not undone by a rebuild.
+  StatementCurrency? _currency;
   PlatformFile? _receipt;
   bool _isSaving = false;
 
@@ -318,6 +321,14 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
     );
     if (result == null || result.files.isEmpty) return;
     setState(() => _receipt = result.files.first);
+  }
+
+  /// The currency this entry will be saved with, defaulting to the member's
+  /// own team until they pick something else.
+  StatementCurrency get _entryCurrency {
+    final team = ref.read(currentUserStreamProvider).valueOrNull?.team;
+    return _currency ??
+        (team == null ? StatementCurrency.ils : StatementCurrency.forTeam(team));
   }
 
   Future<void> _save() async {
@@ -371,7 +382,7 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
         'id': id,
         'type': _type,
         'amount': amount,
-        'currency': _currency.code,
+        'currency': _entryCurrency.code,
         'ilsPerEur': rate,
         'description': _descCtrl.text.trim(),
         'date': DateTime.now().toIso8601String(),
@@ -408,20 +419,25 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
 
   /// What the entered amount comes to in the other currency, shown live so a
   /// mistyped rate is obvious before it is saved rather than after.
-  String? get _conversionHint {
+  String? _conversionHint(StatementCurrency currency) {
     final amount = double.tryParse(_amountCtrl.text.trim());
     final rate = double.tryParse(_rateCtrl.text.trim());
     if (amount == null || rate == null || rate <= 0) return null;
 
-    final money = Money(amount: amount, currency: _currency, ilsPerEur: rate);
-    return _currency == StatementCurrency.ils
+    final money = Money(amount: amount, currency: currency, ilsPerEur: rate);
+    return currency == StatementCurrency.ils
         ? money.formattedEur
         : money.formattedIls;
   }
 
   @override
   Widget build(BuildContext context) {
-    final hint = _conversionHint;
+    // Gaza records in shekels, the Netherlands in euro. Opening on the wrong
+    // one is a mistake waiting to be made every single time.
+    final team = ref.watch(currentUserStreamProvider).valueOrNull?.team;
+    final currency = _currency ??
+        (team == null ? StatementCurrency.ils : StatementCurrency.forTeam(team));
+    final hint = _conversionHint(currency);
 
     return AlertDialog(
       title: Text(AppLocalizations.of(context, 'add_financial')),
@@ -457,7 +473,7 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
                 Expanded(
                   flex: 2,
                   child: DropdownButtonFormField<StatementCurrency>(
-                    initialValue: _currency,
+                    initialValue: currency,
                     items: [
                       for (final currency in StatementCurrency.values)
                         DropdownMenuItem(
@@ -465,7 +481,7 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
                           child: Text('${currency.symbol} ${currency.code}'),
                         ),
                     ],
-                    onChanged: (v) => setState(() => _currency = v ?? _currency),
+                    onChanged: (v) => setState(() => _currency = v ?? currency),
                     decoration: InputDecoration(
                       labelText: AppLocalizations.of(context, 'currency_label'),
                     ),

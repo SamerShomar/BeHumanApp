@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 
 import 'package:be_human_app/core/languages/app_localizations.dart';
+import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 
 /// The two currencies the foundation actually works in: donations arrive in
 /// euro, spending happens in shekel.
@@ -16,6 +17,17 @@ enum StatementCurrency {
 
   String label(BuildContext context) =>
       AppLocalizations.of(context, 'currency_$name');
+
+  /// What a member of [team] is almost always recording.
+  ///
+  /// Gaza spends in shekels and the Netherlands receives in euro, so the
+  /// dialog opens on the right one instead of making everybody change it
+  /// every time. It stays changeable: a euro transfer does sometimes land in
+  /// Gaza, and that case is exactly why the exchange rate is recorded at all.
+  static StatementCurrency forTeam(UserTeam team) => switch (team) {
+        UserTeam.gaza => StatementCurrency.ils,
+        UserTeam.netherlands => StatementCurrency.eur,
+      };
 
   static StatementCurrency? parse(Object? raw) {
     final value = '${raw ?? ''}'.trim().toUpperCase();

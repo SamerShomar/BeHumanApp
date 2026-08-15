@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:be_human_app/core/languages/app_localizations.dart';
+import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 import 'package:be_human_app/features/finance/domain/money.dart';
 
 /// The ledger is kept in two currencies: donations arrive in euro, spending
@@ -144,6 +145,22 @@ void main() {
           expect(AppLocalizations.translate(locale, key), isNot(key),
               reason: 'Missing "$key" in ${locale.languageCode}');
         }
+      }
+    });
+  });
+
+  group('the currency a member records in', () {
+    test('Gaza opens on shekels, the Netherlands on euro', () {
+      // Gaza spends on the ground in shekels; the Netherlands receives
+      // donations in euro. Opening on the wrong one is a mistake waiting to be
+      // made on every entry.
+      expect(StatementCurrency.forTeam(UserTeam.gaza), StatementCurrency.ils);
+      expect(StatementCurrency.forTeam(UserTeam.netherlands), StatementCurrency.eur);
+    });
+
+    test('every team has a default, so the dialog never opens on nothing', () {
+      for (final team in UserTeam.values) {
+        expect(StatementCurrency.forTeam(team), isNotNull);
       }
     });
   });
