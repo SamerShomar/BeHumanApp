@@ -9,7 +9,7 @@ import 'package:be_human_app/features/projects/domain/project.dart';
 const int projectFeedLimit = 20;
 
 /// The foundation's projects, newest first.
-final projectsProvider = StreamProvider.autoDispose<List<Project>>((ref) {
+final projectsProvider = StreamProvider<List<Project>>((ref) {
   final firestore = ref.watch(firebaseFirestoreProvider);
   return firestore
       .collection('projects')
@@ -29,7 +29,7 @@ final projectsProvider = StreamProvider.autoDispose<List<Project>>((ref) {
 /// version kept it in a StateNotifier, so whatever an admin pulled from the
 /// website was gone on the next launch and no other user ever saw it.
 final siteContentProvider =
-    StreamProvider.autoDispose<Map<String, String>>((ref) {
+    StreamProvider<Map<String, String>>((ref) {
   final firestore = ref.watch(firebaseFirestoreProvider);
   return firestore.collection('site_content').doc('about').snapshots().map(
         (doc) => {

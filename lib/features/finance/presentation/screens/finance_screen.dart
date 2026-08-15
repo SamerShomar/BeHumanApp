@@ -13,6 +13,7 @@ import 'package:be_human_app/core/widgets/glass.dart';
 import 'package:be_human_app/core/widgets/stat_card.dart';
 import 'package:be_human_app/core/widgets/state_views.dart';
 import 'package:be_human_app/features/finance/data/statement_exporter.dart';
+import 'package:be_human_app/features/finance/presentation/screens/pdf_preview_screen.dart';
 import 'package:be_human_app/features/finance/domain/statement_range.dart';
 import 'package:be_human_app/features/finance/presentation/widgets/statement_document.dart';
 import 'package:be_human_app/core/services/file_storage_service.dart';
@@ -204,24 +205,44 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
           to: DateTime.now(),
         );
 
+    // The statement renders detached from the app, so nothing is inherited —
+    // the container has to be handed over explicitly or every lookup inside
+    // it fails and the error box is what ends up in the PDF.
+    final container = ProviderScope.containerOf(context);
+    final direction = Directionality.of(context);
+    final navigator = Navigator.of(context);
+    final fileName = 'be-human-statement-'
+        '${DateFormat('yyyyMMdd').format(range.from)}-'
+        '${DateFormat('yyyyMMdd').format(range.to)}.pdf';
+
     setState(() => _isExporting = true);
     try {
       const exporter = StatementExporter();
       final png = await exporter.renderToImage(
-        _StatementHost(
-          range: range,
-          transactions: visible,
-          issuedBy: user?.name ?? '',
+        UncontrolledProviderScope(
+          container: container,
+          child: Directionality(
+            textDirection: direction,
+            child: _StatementHost(
+              range: range,
+              transactions: visible,
+              issuedBy: user?.name ?? '',
+            ),
+          ),
         ),
         size: const Size(StatementDocument.pageWidth, StatementDocument.pageHeight),
       );
       final pdf = exporter.buildPdf(png);
-      await exporter.share(
-        pdf,
-        fileName: 'be-human-statement-'
-            '${DateFormat('yyyyMMdd').format(range.from)}-'
-            '${DateFormat('yyyyMMdd').format(range.to)}.pdf',
-      );
+
+      if (!mounted) return;
+      setState(() => _isExporting = false);
+
+      // Shown before sharing, not instead of it. The statement used to go
+      // straight to the share sheet, so nobody saw what they were sending —
+      // which is how a page of error text went out looking like a statement.
+      await navigator.push(MaterialPageRoute<void>(
+        builder: (_) => PdfPreviewScreen(bytes: pdf, fileName: fileName),
+      ));
       messenger.showSnackBar(SnackBar(content: Text(readyMessage)));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('$e')));

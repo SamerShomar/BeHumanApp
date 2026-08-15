@@ -20,7 +20,15 @@ class StatementExporter {
   /// Renders [document] offscreen at [pixelRatio] and returns PNG bytes.
   ///
   /// Nothing is attached to the widget tree, so this works without the
-  /// statement ever being visible on screen.
+  /// statement ever being visible on screen — and that is the catch. This
+  /// render has **no inherited widgets at all**: no MaterialApp, no
+  /// Directionality, and no `ProviderScope`. [document] must therefore carry
+  /// everything it reads.
+  ///
+  /// Getting that wrong does not throw here. Flutter renders its error box
+  /// instead, and the rasteriser faithfully captures it — which is how a
+  /// statement came out as a red page reading "Bad state: No ProviderScope
+  /// found", saved and shared as if it were the real thing.
   Future<Uint8List> renderToImage(
     Widget document, {
     required Size size,
@@ -45,7 +53,10 @@ class StatementExporter {
     final buildOwner = BuildOwner(focusManager: FocusManager());
     final element = RenderObjectToWidgetAdapter<RenderBox>(
       container: repaintBoundary,
-      child: Directionality(textDirection: TextDirection.ltr, child: document),
+      // No Directionality forced here: the caller wraps the document, because
+      // an Arabic statement has to lay out right-to-left and this had been
+      // pinning every statement to LTR.
+      child: document,
     ).attachToRenderTree(buildOwner);
 
     buildOwner

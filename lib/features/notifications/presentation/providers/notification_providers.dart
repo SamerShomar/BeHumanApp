@@ -16,7 +16,7 @@ const int notificationFeedLimit = 50;
 
 /// Every notification on record, newest first, regardless of audience.
 final notificationFeedProvider =
-    StreamProvider.autoDispose<List<AppNotification>>((ref) {
+    StreamProvider<List<AppNotification>>((ref) {
   final firestore = ref.watch(firebaseFirestoreProvider);
   return firestore
       .collection('notifications')
@@ -34,7 +34,7 @@ final notificationFeedProvider =
 ///
 /// Filtering happens here rather than in the query because audience membership
 /// depends on the reader's role, which Firestore cannot express in a `where`.
-final myNotificationsProvider = Provider.autoDispose<List<AppNotification>>((ref) {
+final myNotificationsProvider = Provider<List<AppNotification>>((ref) {
   final user = ref.watch(currentUserStreamProvider).valueOrNull;
   if (user == null) return const [];
 
@@ -43,7 +43,7 @@ final myNotificationsProvider = Provider.autoDispose<List<AppNotification>>((ref
 });
 
 /// Drives the badge on the bell.
-final unreadNotificationCountProvider = Provider.autoDispose<int>((ref) {
+final unreadNotificationCountProvider = Provider<int>((ref) {
   final user = ref.watch(currentUserStreamProvider).valueOrNull;
   if (user == null) return 0;
 

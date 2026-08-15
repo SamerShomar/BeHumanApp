@@ -81,6 +81,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'no-internet',
         builder: (context, state) => const NoInternetScreen(),
       ),
+      // Tabs swap instantly. The default page transition slides a whole
+      // screen in on every tap of the bottom bar, which on a bottom-nav app
+      // reads as lag rather than polish — the destination is already "here".
       ShellRoute(
         builder: (context, state, child) {
           return MainShell(location: state.matchedLocation, child: child);
@@ -89,37 +92,44 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/home',
             name: 'home',
-            builder: (context, state) => const HomeScreen(),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: HomeScreen()),
           ),
           GoRoute(
             path: '/proposals',
             name: 'proposals',
-            builder: (context, state) => const ProposalsListScreen(),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ProposalsListScreen()),
           ),
           GoRoute(
             path: '/financial',
             name: 'financial',
-            builder: (context, state) => const FinanceScreen(),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: FinanceScreen()),
           ),
           GoRoute(
             path: '/dashboard',
             name: 'dashboard',
-            builder: (context, state) => const AdminDashboardScreen(),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: AdminDashboardScreen()),
           ),
           GoRoute(
             path: '/archive',
             name: 'archive',
-            builder: (context, state) => const ArchiveScreen(),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ArchiveScreen()),
           ),
           GoRoute(
             path: '/settings',
             name: 'settings',
-            builder: (context, state) => const SettingsScreen(),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: SettingsScreen()),
           ),
           GoRoute(
             path: '/notifications',
             name: 'notifications',
-            builder: (context, state) => const NotificationsScreen(),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: NotificationsScreen()),
           ),
         ],
       ),

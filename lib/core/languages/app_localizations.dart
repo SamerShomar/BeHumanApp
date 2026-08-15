@@ -15,6 +15,8 @@ class AppLocalizations {
   static final Map<String, Map<String, String>> _translations = {
     'en': {
       'app_title': 'Be Human Foundation',
+      'statement_preview': 'Statement preview',
+      'share': 'Share',
       'latest_projects': 'Latest projects',
       'no_projects': 'No projects published yet',
       'beneficiaries_count': '{count} beneficiaries',
@@ -217,6 +219,8 @@ class AppLocalizations {
     },
     'ar': {
       'app_title': 'مؤسسة بي هيومان',
+      'statement_preview': 'معاينة كشف الحساب',
+      'share': 'مشاركة',
       'latest_projects': 'أحدث المشاريع',
       'no_projects': 'لا توجد مشاريع منشورة بعد',
       'beneficiaries_count': '{count} مستفيد',
@@ -419,6 +423,8 @@ class AppLocalizations {
     },
     'nl': {
       'app_title': 'Be Human Foundation',
+      'statement_preview': 'Voorbeeld overzicht',
+      'share': 'Delen',
       'latest_projects': 'Recente projecten',
       'no_projects': 'Nog geen projecten gepubliceerd',
       'beneficiaries_count': '{count} begunstigden',

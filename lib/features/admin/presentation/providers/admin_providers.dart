@@ -3,7 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 
-final proposalsProvider = StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
+// These are deliberately not autoDispose. With it, leaving a tab tore down the
+// Firestore listener and returning re-subscribed from scratch, so every switch
+// between tabs showed a spinner and a flash of empty screen. Held open, the
+// data is simply there — which is what makes moving around feel instant.
+//
+// The cost is a handful of always-open snapshot listeners. For collections
+// this small that is cheaper than re-reading them on every navigation.
+
+final proposalsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   final firestore = ref.watch(firebaseFirestoreProvider);
   return firestore
       .collection('proposals')
@@ -14,7 +22,7 @@ final proposalsProvider = StreamProvider.autoDispose<List<Map<String, dynamic>>>
           .toList());
 });
 
-final transactionsProvider = StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
+final transactionsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   final firestore = ref.watch(firebaseFirestoreProvider);
   return firestore
       .collection('transactions')
@@ -43,7 +51,7 @@ final financesProvider = Provider<Map<String, double>>((ref) {
 });
 
 /// Every user profile, for the admin dashboard's member list.
-final usersProvider = StreamProvider.autoDispose<List<AppUser>>((ref) {
+final usersProvider = StreamProvider<List<AppUser>>((ref) {
   final firestore = ref.watch(firebaseFirestoreProvider);
   return firestore.collection('users').snapshots().map(
         (snapshot) => snapshot.docs

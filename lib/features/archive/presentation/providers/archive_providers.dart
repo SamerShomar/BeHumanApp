@@ -8,7 +8,7 @@ import 'package:be_human_app/features/auth/presentation/providers/auth_provider.
 /// Folders a user has created directly in the archive. The two system
 /// folders (proposals, invoices) are not stored here — they are derived from
 /// the proposals and transactions collections and shown alongside these.
-final archiveFoldersProvider = StreamProvider.autoDispose<List<ArchiveFolder>>((ref) {
+final archiveFoldersProvider = StreamProvider<List<ArchiveFolder>>((ref) {
   final firestore = ref.watch(firebaseFirestoreProvider);
   return firestore.collection('archive_folders').orderBy('name').snapshots().map(
         (snapshot) => snapshot.docs
