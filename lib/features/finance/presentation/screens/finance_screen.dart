@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -409,10 +410,24 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
       messenger.showSnackBar(SnackBar(content: Text(e.localized(context))));
     } catch (e) {
       if (mounted) setState(() => _isSaving = false);
+
+      // Firestore's own wording for a rejected write is "The caller does not
+      // have permission to execute the specified operation", which tells
+      // whoever is typing an amount nothing at all. It means one specific
+      // thing here: the ruleset live on the project is older than the one in
+      // firestore.rules, which lets both teams write. Say that instead.
+      final isDenied = e is FirebaseException && e.code == 'permission-denied';
+
       messenger.showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(
-          context, 'transaction_add_failed', {'error': e.toString()},
-        ))),
+        SnackBar(
+          duration: Duration(seconds: isDenied ? 8 : 4),
+          content: Text(
+            isDenied
+                ? AppLocalizations.of(context, 'transaction_add_denied')
+                : AppLocalizations.of(
+                    context, 'transaction_add_failed', {'error': e.toString()}),
+          ),
+        ),
       );
     }
   }

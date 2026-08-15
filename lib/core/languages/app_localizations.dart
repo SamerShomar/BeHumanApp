@@ -79,6 +79,10 @@ class AppLocalizations {
       'proposal_add_failed': 'Could not add the proposal: {error}',
       'transaction_added': 'Financial movement added',
       'transaction_add_failed': 'Could not add the movement: {error}',
+      'transaction_add_denied':
+          'Your account is not allowed to write to the ledger. The security '
+          'rules on the database need to be published again — nothing is '
+          'wrong with what you entered.',
       'email_password_required': 'Email and password are required',
       'email_not_registered': 'That email is not registered',
       'credentials_invalid': 'Email or password is incorrect',
@@ -299,6 +303,9 @@ class AppLocalizations {
       'proposal_add_failed': 'فشل إضافة المقترح: {error}',
       'transaction_added': 'تم إضافة الحركة المالية بنجاح',
       'transaction_add_failed': 'فشل إضافة الحركة المالية: {error}',
+      'transaction_add_denied':
+          'حسابك غير مصرّح له بالكتابة في السجل المالي. لازم يتم نشر قواعد '
+          'الحماية على قاعدة البيانات من جديد — ما في خطأ في البيانات اللي أدخلتها.',
       'email_password_required': 'البريد الإلكتروني وكلمة المرور مطلوبة',
       'email_not_registered': 'البريد الإلكتروني غير مسجل',
       'credentials_invalid': 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
@@ -519,6 +526,10 @@ class AppLocalizations {
       'proposal_add_failed': 'Voorstel toevoegen mislukt: {error}',
       'transaction_added': 'Mutatie toegevoegd',
       'transaction_add_failed': 'Mutatie toevoegen mislukt: {error}',
+      'transaction_add_denied':
+          'Dit account mag niet in het grootboek schrijven. De beveiligings'
+          'regels van de database moeten opnieuw worden gepubliceerd — er is '
+          'niets mis met wat je hebt ingevuld.',
       'email_password_required': 'E-mail en wachtwoord zijn verplicht',
       'email_not_registered': 'Dit e-mailadres is niet geregistreerd',
       'credentials_invalid': 'E-mail of wachtwoord is onjuist',
