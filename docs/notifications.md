@@ -76,17 +76,42 @@ Needs a computer, not a phone.
    *Service accounts* → **Generate new private key**. A `.json` file downloads.
    Treat it like a password; never commit it.
 
-2. **Install the Supabase CLI** and sign in:
+2. **Install the Supabase CLI.** Not with `npm install -g supabase` — the CLI
+   refuses to install as a global npm module and says so. Use the package
+   manager for the platform:
+
+   **Windows** (PowerShell). Scoop first, if it is not already there:
+
+   ```powershell
+   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+   Invoke-RestMethod get.scoop.sh | Invoke-Expression
+   scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
+   scoop install supabase
+   ```
+
+   **macOS / Linux:**
 
    ```bash
-   npm install -g supabase
+   brew install supabase/tap/supabase
+   ```
+
+   Neither of those needs Node.js. If you would rather install nothing at all
+   and you do have Node, `npx supabase@latest <command>` works everywhere a
+   plain `supabase` does — write `npx supabase@latest login` in place of
+   `supabase login` below, and so on for every command.
+
+   Then sign in. It opens a browser:
+
+   ```
    supabase login
    ```
 
-3. **Link the project** (the ref is in the Supabase dashboard URL, and under
-   Project Settings → General):
+3. **Link the project.** Run this **from the project folder** — the one
+   holding `pubspec.yaml` — because it reads `supabase/config.toml`, which is
+   in this repository. The ref is in the Supabase dashboard URL, and under
+   Project Settings → General:
 
-   ```bash
+   ```
    supabase link --project-ref <your-project-ref>
    ```
 
@@ -102,9 +127,9 @@ Needs a computer, not a phone.
    supabase secrets set FIREBASE_SERVICE_ACCOUNT="$(Get-Content -Raw C:\path\to\serviceAccount.json)"
    ```
 
-5. **Deploy:**
+5. **Deploy** — also from the project folder:
 
-   ```bash
+   ```
    supabase functions deploy send-notification
    ```
 
