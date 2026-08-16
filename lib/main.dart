@@ -10,6 +10,7 @@ import 'package:be_human_app/core/security/cache_guard.dart';
 import 'package:be_human_app/core/security/inactivity_guard.dart';
 import 'package:be_human_app/core/services/push_registrar.dart';
 import 'package:be_human_app/core/widgets/glass.dart';
+import 'package:be_human_app/core/widgets/offline_indicator.dart';
 import 'package:be_human_app/core/security/security_settings.dart';
 import 'package:be_human_app/core/router/app_router.dart';
 import 'package:be_human_app/core/theme/app_theme.dart';
@@ -88,7 +89,12 @@ class _BeHumanAppState extends ConsumerState<BeHumanApp> {
           builder: (context, child) => FirestoreCacheGuardScope(
             child: PushRegistrar(
               child: AppBackground(
-                child: InactivityGuard(child: child ?? const SizedBox.shrink()),
+                // Above everything, so losing signal is stated once in the
+                // corner wherever the user happens to be — instead of a screen
+                // standing in front of an app that still works offline.
+                child: OfflineIndicator(
+                  child: InactivityGuard(child: child ?? const SizedBox.shrink()),
+                ),
               ),
             ),
           ),

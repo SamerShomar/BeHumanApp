@@ -12,7 +12,6 @@ import 'package:go_router/go_router.dart';
 
 import 'package:be_human_app/core/theme/app_theme.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
-import 'package:be_human_app/features/no_internet/presentation/screens/no_internet_screen.dart';
 import 'package:be_human_app/features/splash/presentation/screens/splash_screen.dart';
 
 /// Renders the launch screens so their layout can be reviewed as an image.
@@ -136,17 +135,5 @@ void main() {
       await tester.pumpAndSettle(const Duration(seconds: 3));
     }, skip: !Platform.isLinux);
 
-    testWidgets('no-internet renders ($mode)', (tester) async {
-      useDeviceViewport(tester);
-      mockConnectivity(online: false);
-
-      await tester.pumpWidget(wrap(const NoInternetScreen(), dark: dark));
-      await tester.pump();
-
-      await expectLater(
-        find.byType(NoInternetScreen),
-        matchesGoldenFile('goldens/no_internet_$mode.png'),
-      );
-    }, skip: !Platform.isLinux);
   }
 }

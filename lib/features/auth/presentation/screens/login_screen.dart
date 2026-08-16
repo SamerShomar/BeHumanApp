@@ -44,13 +44,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      // Check internet connection first
+      // Authentication is the one thing that genuinely cannot be done from
+      // the cache, so it is the one place a missing connection still stops
+      // someone. Said here, with what happens next, rather than by a screen
+      // standing in front of an app that otherwise works offline.
       final hasInternet = await hasNetworkConnection();
       if (!hasInternet) {
         if (!mounted) return;
         setState(() {
           isLoading = false;
-          errorMessage = AppLocalizations.of(context, 'no_internet_title');
+          errorMessage = AppLocalizations.of(context, 'offline_sign_in');
         });
         return;
       }

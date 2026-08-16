@@ -22,9 +22,10 @@ import 'package:be_human_app/features/archive/presentation/screens/archive_scree
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:be_human_app/features/auth/presentation/screens/login_screen.dart';
+import 'package:be_human_app/features/finance/domain/statement_filter.dart';
 import 'package:be_human_app/features/finance/presentation/screens/finance_screen.dart';
+import 'package:be_human_app/features/finance/presentation/widgets/statement_filter_sheet.dart';
 import 'package:be_human_app/features/home/presentation/screens/home_screen.dart';
-import 'package:be_human_app/features/no_internet/presentation/screens/no_internet_screen.dart';
 import 'package:be_human_app/features/notifications/domain/app_notification.dart';
 import 'package:be_human_app/features/notifications/presentation/providers/notification_providers.dart';
 import 'package:be_human_app/features/notifications/presentation/screens/notifications_screen.dart';
@@ -281,7 +282,6 @@ void main() {
   final cases = <String, ({Widget screen, String? shell, AppUser user})>{
     'splash': (screen: const SplashScreen(), shell: null, user: admin),
     'login': (screen: const LoginScreen(), shell: null, user: admin),
-    'no_internet': (screen: const NoInternetScreen(), shell: null, user: admin),
     'home': (screen: const HomeScreen(), shell: '/home', user: admin),
     'proposals': (screen: const ProposalsListScreen(), shell: '/proposals', user: gaza),
     'finance': (screen: const FinanceScreen(), shell: '/financial', user: admin),
@@ -295,7 +295,7 @@ void main() {
     for (final dark in [false, true]) {
       testWidgets('${entry.key} ${dark ? 'dark' : 'light'}', (tester) async {
         useDeviceViewport(tester);
-        mockConnectivity(online: entry.key != 'no_internet');
+        mockConnectivity(online: true);
 
         await tester.pumpWidget(wrap(
           entry.value.screen,
@@ -318,6 +318,39 @@ void main() {
         // than failing on font differences that say nothing about the app.
       }, skip: !Platform.isLinux);
     }
+  }
+
+  // The filter panel, which is where a payment statement is now produced from.
+  for (final dark in [false, true]) {
+    testWidgets('statement filter ${dark ? 'dark' : 'light'}', (tester) async {
+      useDeviceViewport(tester);
+      mockConnectivity(online: true);
+
+      await tester.pumpWidget(wrap(
+        Builder(
+          builder: (context) => Scaffold(
+            backgroundColor: Colors.transparent,
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () => StatementFilterSheet.show(
+                  context,
+                  StatementFilter(from: DateTime(2026, 6, 1), minAmount: 250),
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+        dark: dark,
+      ));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/ui_filter_${dark ? 'dark' : 'light'}.png'),
+      );
+    }, skip: !Platform.isLinux);
   }
 
   // A folder's contents, which open above the shell rather than inside it.

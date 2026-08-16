@@ -62,27 +62,20 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   Future<void> _decideNextRoute() async {
-    // Both run together: the animation is the floor on how long this screen
-    // stays up, not an addition to the connectivity check.
-    final results = await Future.wait([
-      hasNetworkConnection(),
-      Future<void>.delayed(_animationDuration),
-    ]);
-
+    // The animation is the only thing held for now. Connectivity used to be
+    // checked here to decide whether to show a blocking screen; nothing is
+    // blocked on it any more, so waiting on it would only delay the app.
+    await Future<void>.delayed(_animationDuration);
     if (!mounted) return;
 
-    final isOnline = results.first as bool;
     final isSignedIn = ref.read(isSignedInProvider);
 
     // An already-signed-in user can keep working offline: Firestore serves
     // reads from its cache and queues writes until the network returns. Only
     // someone who still has to authenticate is actually blocked, since that
-    // round-trip cannot be cached.
-    if (isSignedIn) {
-      context.go('/home');
-    } else {
-      context.go(isOnline ? '/login' : '/no-internet');
-    }
+    // round-trip cannot be cached — and the login screen says so itself now,
+    // rather than a whole screen standing in front of the app.
+    context.go(isSignedIn ? '/home' : '/login');
   }
 
   @override

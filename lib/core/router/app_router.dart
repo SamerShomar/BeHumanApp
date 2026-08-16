@@ -12,7 +12,6 @@ import 'package:be_human_app/features/proposals/presentation/screens/proposals_l
 import 'package:be_human_app/features/finance/presentation/screens/finance_screen.dart';
 import 'package:be_human_app/features/settings/presentation/screens/settings_screen.dart';
 import 'package:be_human_app/features/splash/presentation/screens/splash_screen.dart';
-import 'package:be_human_app/features/no_internet/presentation/screens/no_internet_screen.dart';
 import 'package:be_human_app/features/archive/presentation/screens/archive_screen.dart';
 import 'package:be_human_app/features/notifications/presentation/screens/notifications_screen.dart';
 import 'package:be_human_app/features/notifications/presentation/widgets/notification_toaster.dart';
@@ -24,7 +23,7 @@ import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 
 /// Routes that are reachable without being signed in.
-const _publicRoutes = {'/', '/splash', '/login', '/no-internet'};
+const _publicRoutes = {'/', '/splash', '/login'};
 
 /// The router is exposed as a provider so it can react to auth changes:
 /// [refreshListenable] re-runs [GoRouter.redirect] every time the Firebase
@@ -75,11 +74,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/login',
         name: 'login',
         builder: (context, state) => const LoginScreen(),
-      ),
-      GoRoute(
-        path: '/no-internet',
-        name: 'no-internet',
-        builder: (context, state) => const NoInternetScreen(),
       ),
       // Tabs swap instantly. The default page transition slides a whole
       // screen in on every tap of the bottom bar, which on a bottom-nav app

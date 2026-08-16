@@ -80,36 +80,54 @@ class StatementDocument extends StatelessWidget {
     );
   }
 
+  /// Letterhead: mark to one side, the organisation and the document's name
+  /// centred on the page.
+  ///
+  /// The title is deliberately the English "Payment Statement" in every
+  /// language. This page is handed to banks, auditors and funders who do not
+  /// read Arabic, and a document whose own name changes with the reader's
+  /// phone settings is harder to file than one that is always called the same
+  /// thing.
+  ///
+  /// The centring is done with matched side spacers rather than by centring a
+  /// column. The page's outer column aligns to the start, so a block that
+  /// shrinks to its content centres its children inside *that* — which is how
+  /// this header used to sit visibly left of the page's middle. Giving the
+  /// logo a fixed width and reserving the same width on the other side leaves
+  /// the middle column genuinely centred on the page.
+  static const double _logoSize = 78;
+
   Widget _header(BuildContext context) {
-    // Centred, stacked: the mark leads, then the organisation, then what the
-    // document is.
-    //
-    // The width matters. The page's outer column aligns to the start, so this
-    // block shrank to the width of its widest line and centred the logo inside
-    // *that* — leaving it visibly left of the page's centre. Taking the full
-    // width is what makes "centred" mean centred on the page.
     return SizedBox(
       width: double.infinity,
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _Picture(image: images.logo, size: 84),
-          const SizedBox(height: 10),
-          Text(
-            AppLocalizations.of(context, 'app_title'),
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            AppLocalizations.of(context, 'invoices_title'),
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.5,
+          _Picture(image: images.logo, size: _logoSize),
+          Expanded(
+            child: Column(
+              children: [
+                Text(
+                  AppLocalizations.of(context, 'app_title'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Payment Statement',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ],
             ),
           ),
+          // The logo's counterweight. Without it the middle column would be
+          // centred in what is left of the row, not on the page.
+          const SizedBox(width: _logoSize),
         ],
       ),
     );

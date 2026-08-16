@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 
 import 'package:be_human_app/core/languages/app_localizations.dart';
 import 'package:be_human_app/core/theme/app_colors.dart';
+import 'package:be_human_app/core/utils/connectivity.dart';
 import 'package:be_human_app/core/utils/formatters.dart';
 import 'package:be_human_app/core/widgets/app_fab.dart';
 import 'package:be_human_app/core/widgets/glass.dart';
@@ -16,7 +17,9 @@ import 'package:be_human_app/core/widgets/state_views.dart';
 import 'package:be_human_app/features/finance/data/statement_exporter.dart';
 import 'package:be_human_app/features/finance/presentation/screens/pdf_preview_screen.dart';
 import 'package:be_human_app/features/finance/domain/money.dart';
+import 'package:be_human_app/features/finance/domain/statement_filter.dart';
 import 'package:be_human_app/features/finance/domain/statement_range.dart';
+import 'package:be_human_app/features/finance/presentation/widgets/statement_filter_sheet.dart';
 import 'package:be_human_app/features/finance/presentation/widgets/statement_document.dart';
 import 'package:be_human_app/core/services/file_storage_service.dart';
 import 'package:be_human_app/features/admin/presentation/providers/admin_providers.dart';
@@ -35,7 +38,7 @@ class FinanceScreen extends ConsumerStatefulWidget {
 }
 
 class _FinanceScreenState extends ConsumerState<FinanceScreen> {
-  StatementRange? _range;
+  StatementFilter _filter = StatementFilter.none;
   bool _isExporting = false;
 
   @override
@@ -44,9 +47,8 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
 
     // Totals follow the filter, so an exported statement and the figures on
     // screen can never disagree.
-    final visible = _range == null
-        ? (transactions.valueOrNull ?? const <Map<String, dynamic>>[])
-        : _range!.filter(transactions.valueOrNull ?? const []);
+    final visible =
+        _filter.apply(transactions.valueOrNull ?? const <Map<String, dynamic>>[]);
     final totals = MoneyTotals.of(visible);
 
     // Gaza members see the ledger but cannot change it; the rules enforce the
@@ -58,27 +60,23 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
       backgroundColor: Colors.transparent,
       appBar: GlassAppBar(
         title: AppLocalizations.of(context, 'financial'),
+        // One button, not three. Choosing a period, clearing it and printing
+        // were separate icons that had to be understood together; they are one
+        // panel now, and the print button lives beside the choices it prints.
         actions: [
-          IconButton(
-            icon: const Icon(Icons.date_range),
-            tooltip: AppLocalizations.of(context, 'pick_range'),
-            onPressed: _pickRange,
-          ),
-          if (_range != null)
-            IconButton(
-              icon: const Icon(Icons.filter_alt_off),
-              tooltip: AppLocalizations.of(context, 'clear_filter'),
-              onPressed: () => setState(() => _range = null),
-            ),
           IconButton(
             icon: _isExporting
                 ? const SizedBox(
                     width: 18, height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.picture_as_pdf),
-            tooltip: AppLocalizations.of(context, 'export_statement'),
-            onPressed: _isExporting ? null : () => _export(visible),
+                : Badge(
+                    isLabelVisible: !_filter.isEmpty,
+                    smallSize: 8,
+                    child: const Icon(Icons.tune),
+                  ),
+            tooltip: AppLocalizations.of(context, 'filter_statement'),
+            onPressed: _isExporting ? null : _openFilter,
           ),
           const NotificationBell(),
         ],
@@ -113,7 +111,7 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
               ],
             ),
           ),
-          if (_range != null || !hasWriteAccess)
+          if (!_filter.isEmpty || !hasWriteAccess)
             Padding(
               padding: const EdgeInsets.fromLTRB(
                 AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0,
@@ -122,12 +120,21 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
                 spacing: AppSpacing.sm,
                 runSpacing: AppSpacing.sm,
                 children: [
-                  if (_range != null)
+                  // Dates and amounts get their own pill: each can be cleared
+                  // without losing the other.
+                  if (_filter.hasDates)
                     _InfoPill(
                       icon: Icons.date_range,
-                      label: '${Formatters.date(_range!.from)}  →  '
-                          '${Formatters.date(_range!.to)}',
-                      onClear: () => setState(() => _range = null),
+                      label: _periodLabel(context),
+                      onClear: () => setState(
+                          () => _filter = _filter.copyWith(clearDates: true)),
+                    ),
+                  if (_filter.hasAmounts)
+                    _InfoPill(
+                      icon: Icons.euro,
+                      label: _amountLabel(context),
+                      onClear: () => setState(
+                          () => _filter = _filter.copyWith(clearAmounts: true)),
                     ),
                   if (!hasWriteAccess)
                     _InfoPill(
@@ -182,32 +189,61 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
     );
   }
 
-  Future<void> _pickRange() async {
-    final now = DateTime.now();
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(now.year - 5),
-      lastDate: DateTime(now.year + 1),
-      initialDateRange: _range == null
-          ? null
-          : DateTimeRange(start: _range!.from, end: _range!.to),
-    );
-    if (picked == null) return;
-    setState(() => _range = StatementRange(from: picked.start, to: picked.end));
+  /// Opens the filter panel and acts on how it was closed.
+  ///
+  /// Printing goes through here rather than through its own button, so the
+  /// statement is always produced from the filter the user was just looking
+  /// at — the two can never be a step out of sync.
+  Future<void> _openFilter() async {
+    final result = await StatementFilterSheet.show(context, _filter);
+    if (result == null || !mounted) return;
+
+    setState(() => _filter = result.filter);
+    if (!result.print) return;
+
+    final transactions =
+        ref.read(transactionsProvider).valueOrNull ?? const <Map<String, dynamic>>[];
+    await _export(result.filter.apply(transactions), result.filter);
   }
 
-  Future<void> _export(List<Map<String, dynamic>> visible) async {
+  String _periodLabel(BuildContext context) {
+    final from = _filter.from;
+    final to = _filter.to;
+    // An open-ended period reads as one, rather than being filled in with a
+    // date the user never chose.
+    if (from != null && to != null) {
+      return '${Formatters.date(from)}  →  ${Formatters.date(to)}';
+    }
+    if (from != null) {
+      return '${AppLocalizations.of(context, 'from_date')}: ${Formatters.date(from)}';
+    }
+    return '${AppLocalizations.of(context, 'to_date')}: ${Formatters.date(to!)}';
+  }
+
+  String _amountLabel(BuildContext context) {
+    final min = _filter.minAmount;
+    final max = _filter.maxAmount;
+    if (min != null && max != null) {
+      return '${Money.format(min, StatementCurrency.eur)}'
+          '  →  ${Money.format(max, StatementCurrency.eur)}';
+    }
+    if (min != null) {
+      return '≥ ${Money.format(min, StatementCurrency.eur)}';
+    }
+    return '≤ ${Money.format(max!, StatementCurrency.eur)}';
+  }
+
+  Future<void> _export(
+    List<Map<String, dynamic>> visible,
+    StatementFilter filter,
+  ) async {
     final messenger = ScaffoldMessenger.of(context);
     final readyMessage = AppLocalizations.of(context, 'statement_ready');
     final user = ref.read(currentUserStreamProvider).valueOrNull;
 
-    // Exporting without a chosen period means "everything on record", so the
-    // header still needs a range to print.
-    final range = _range ??
-        StatementRange(
-          from: _earliestDate(visible) ?? DateTime.now(),
-          to: DateTime.now(),
-        );
+    // A statement always states a period. When the filter set no dates, it is
+    // taken from the rows being printed rather than left blank.
+    final range = filter.rangeFor(visible);
 
     // The statement renders detached from the app, so nothing is inherited —
     // the container has to be handed over explicitly or every lookup inside
@@ -258,17 +294,6 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
-  }
-
-  static DateTime? _earliestDate(List<Map<String, dynamic>> transactions) {
-    DateTime? earliest;
-    for (final t in transactions) {
-      final date = StatementRange.parseDate(t['date']);
-      if (date != null && (earliest == null || date.isBefore(earliest))) {
-        earliest = date;
-      }
-    }
-    return earliest;
   }
 
 }
@@ -388,6 +413,20 @@ class _AddTransactionDialogState extends ConsumerState<AddTransactionDialog> {
         messenger.showSnackBar(
           SnackBar(content: Text(AppLocalizations.of(context, 'file_not_loaded'))),
         );
+        return;
+      }
+
+      // Checked before the upload, not left to time out. Firestore queues a
+      // write offline and sends it later, but the storage bucket has no such
+      // queue — so this one step really does need the network, and a minute
+      // of spinner followed by "upload timed out" says that far worse than a
+      // sentence does.
+      if (!await hasNetworkConnection()) {
+        if (mounted) setState(() => _isSaving = false);
+        messenger.showSnackBar(SnackBar(
+          duration: const Duration(seconds: 6),
+          content: Text(AppLocalizations.of(context, 'offline_upload')),
+        ));
         return;
       }
 

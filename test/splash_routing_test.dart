@@ -36,7 +36,6 @@ void main() {
       routes: [
         GoRoute(path: '/', builder: (_, __) => child),
         GoRoute(path: '/login', builder: (_, __) => const Text('LOGIN')),
-        GoRoute(path: '/no-internet', builder: (_, __) => const Text('OFFLINE')),
         GoRoute(path: '/home', builder: (_, __) => const Text('HOME')),
       ],
     );
@@ -76,13 +75,16 @@ void main() {
     expect(find.text('LOGIN'), findsOneWidget);
   });
 
-  testWidgets('goes to the offline screen when there is no connection',
+  testWidgets('goes to login when offline, not to a blocking screen',
       (tester) async {
+    // There is no offline screen any more. Sign-in is the one thing that
+    // genuinely needs the network, so someone who is not signed in still lands
+    // on the login screen — which says so itself — rather than on a wall.
     mockConnectivity(online: false);
 
     await tester.pumpWidget(wrap(const SplashScreen()));
     await tester.pumpAndSettle(const Duration(seconds: 3));
 
-    expect(find.text('OFFLINE'), findsOneWidget);
+    expect(find.text('LOGIN'), findsOneWidget);
   });
 }
