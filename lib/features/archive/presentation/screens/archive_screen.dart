@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:be_human_app/core/languages/app_localizations.dart';
 import 'package:be_human_app/core/theme/app_colors.dart';
@@ -8,7 +9,6 @@ import 'package:be_human_app/core/widgets/glass.dart';
 import 'package:be_human_app/core/widgets/state_views.dart';
 import 'package:be_human_app/features/archive/domain/archive_models.dart';
 import 'package:be_human_app/features/archive/presentation/providers/archive_providers.dart';
-import 'package:be_human_app/features/archive/presentation/screens/archive_folder_screen.dart';
 import 'package:be_human_app/features/notifications/presentation/widgets/notification_bell.dart';
 
 /// Archive landing screen: a folder per topic.
@@ -130,14 +130,12 @@ class _FolderTile extends ConsumerWidget {
       onLongPress: folder.isSystem ? null : () => _confirmDelete(context, ref),
       child: GlassCard(
         padding: const EdgeInsets.all(AppSpacing.md),
-        // `rootNavigator`, so the folder opens above the shell rather than
-        // inside it. Pushed on the shell's own navigator it lands in the
-        // Scaffold body, and the floating navigation bar — which is that
-        // Scaffold's bottomNavigationBar — stays painted on top of it, over
-        // the folder's own upload button.
-        onTap: () => Navigator.of(context, rootNavigator: true).push(
-          MaterialPageRoute<void>(builder: (_) => ArchiveFolderScreen(folder: folder)),
-        ),
+        // Through the router, not Navigator.push. The folder is a route of
+        // its own outside the shell, so the navigation bar is correctly absent
+        // instead of sitting on top of this screen's upload button — and
+        // go_router still knows where the app is, so moving somewhere else
+        // actually leaves.
+        onTap: () => context.push('/archive/folder', extra: folder),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

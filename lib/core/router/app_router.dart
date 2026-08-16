@@ -19,6 +19,9 @@ import 'package:be_human_app/features/admin/presentation/screens/admin_dashboard
 import 'package:be_human_app/core/languages/app_localizations.dart';
 import 'package:be_human_app/core/providers/auth_state_provider.dart';
 import 'package:be_human_app/core/theme/app_colors.dart';
+import 'package:be_human_app/core/widgets/app_fab.dart';
+import 'package:be_human_app/features/archive/domain/archive_models.dart';
+import 'package:be_human_app/features/archive/presentation/screens/archive_folder_screen.dart';
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 
@@ -74,6 +77,26 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/login',
         name: 'login',
         builder: (context, state) => const LoginScreen(),
+      ),
+      // A folder's contents: a real route, outside the shell.
+      //
+      // It used to be pushed with `Navigator.push`, which go_router knows
+      // nothing about. Pushed on the shell's own navigator the bar stayed on
+      // top of it; pushed on the root navigator the bar was gone, but so was
+      // the router's knowledge of where the app actually was — a later
+      // `context.go` swapped the screen underneath while this route stayed
+      // over it, and the app looked stuck. As a route, go_router owns it: the
+      // bar is correctly absent, back works, and navigating away leaves.
+      GoRoute(
+        path: '/archive/folder',
+        name: 'archive-folder',
+        builder: (context, state) {
+          final folder = state.extra;
+          // `extra` does not survive a restored or deep-linked route, so a
+          // missing one returns to the archive rather than crashing on a cast.
+          if (folder is! ArchiveFolder) return const ArchiveScreen();
+          return ArchiveFolderScreen(folder: folder);
+        },
       ),
       // Tabs swap instantly. The default page transition slides a whole
       // screen in on every tap of the bottom bar, which on a bottom-nav app
@@ -231,7 +254,17 @@ class MainShell extends ConsumerWidget {
       extendBody: true,
       // Wrapping the shell rather than each screen means an incoming
       // notification is announced wherever the user happens to be.
-      body: NotificationToaster(child: child),
+      //
+      // The inset is published here because this is the only place it can be
+      // read: the Scaffold below consumes the bottom padding, so a screen in
+      // its body sees zero. Zero when there is no bar — a signed-out user, or
+      // a profile still loading — since then there is nothing to clear.
+      body: NavBarInset(
+        height: items.isEmpty
+            ? 0
+            : NavBarInset.barHeight + MediaQuery.paddingOf(context).bottom,
+        child: NotificationToaster(child: child),
+      ),
       bottomNavigationBar: items.isEmpty
           ? null
           : _GlassNavBar(items: items, selectedIndex: selectedIndex),
