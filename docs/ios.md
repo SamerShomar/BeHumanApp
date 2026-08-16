@@ -181,7 +181,7 @@ In Xcode:
 3. **Team** — pick your Apple ID (add it under Xcode → Settings → Accounts if
    it is not listed)
 4. If it complains the bundle ID is taken, change it to something unique —
-   `com.<yourname>.behuman` — **and register that same string in Firebase in
+   `com.yourname.behuman` — **and register that same string in Firebase in
    step 3 above**, then download the plist again
 5. Plug the iPhone in, unlock it, trust the computer, and pick it from the
    device menu at the top

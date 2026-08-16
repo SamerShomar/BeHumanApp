@@ -112,20 +112,30 @@ Needs a computer, not a phone.
    Project Settings → General:
 
    ```
-   supabase link --project-ref <your-project-ref>
+   supabase link --project-ref PROJECT_REF_HERE
    ```
+
+   Replace the whole word, and **do not wrap it in angle brackets**.
+   PowerShell reads `<` as a redirection operator and refuses the line with
+   "The '<' operator is reserved for future use" before the command ever runs.
+   The same goes for every placeholder below.
 
 4. **Store the key as a secret** — this is what keeps it off every phone:
 
    ```bash
-   supabase secrets set FIREBASE_SERVICE_ACCOUNT="$(cat /path/to/serviceAccount.json)"
+   supabase secrets set FIREBASE_SERVICE_ACCOUNT="$(cat /full/path/to/serviceAccount.json)"
    ```
 
    On Windows PowerShell:
 
    ```powershell
-   supabase secrets set FIREBASE_SERVICE_ACCOUNT="$(Get-Content -Raw C:\path\to\serviceAccount.json)"
+   supabase secrets set FIREBASE_SERVICE_ACCOUNT="$(Get-Content -Raw C:\full\path\to\serviceAccount.json)"
    ```
+
+   The path is the real location of the file you downloaded from Firebase —
+   `C:\Users\Samer\Downloads\be-human-5023e-firebase-adminsdk-xxxxx.json` or
+   wherever it landed. In File Explorer, shift-right-click the file and choose
+   **Copy as path** to get it exactly, quotes included.
 
 5. **Deploy** — also from the project folder:
 
