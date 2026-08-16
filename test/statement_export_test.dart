@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -58,7 +60,7 @@ void main() {
     expect('$error', contains('ProviderScope'));
   });
 
-  testWidgets('renders when the app container is passed in', (tester) async {
+  testWidgets('renders when a container is passed in', (tester) async {
     usePageSizedSurface(tester);
     final container = ProviderContainer();
     addTearDown(container.dispose);
@@ -69,6 +71,69 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.byType(StatementDocument), findsOneWidget);
+  });
+
+  testWidgets('a throwaway container carries the language the app is in',
+      (tester) async {
+    // What the export builds, and why it can be a bare container: the only
+    // thing the document reads through a provider is the locale.
+    usePageSizedSurface(tester);
+    final container = ProviderContainer(
+      overrides: [
+        localeProvider.overrideWith(
+          (ref) => LocaleNotifier()..setLocale(const Locale('ar')),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(container: container, child: bareDocument()),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(container.read(localeProvider), const Locale('ar'));
+    // Proof it is actually used: the header is in Arabic, not the default.
+    expect(
+      find.text(AppLocalizations.translate(const Locale('ar'), 'app_title')),
+      findsOneWidget,
+    );
+  });
+
+  test('the export never reaches for the running app container', () {
+    // The crash this guards against: mounting an UncontrolledProviderScope
+    // makes that element the container's vsync, and the exporter's BuildOwner
+    // is built once and never scheduled again. Handing it the *live* container
+    // left the app's provider scheduler aimed at a dead element — the next
+    // refresh queued a task nothing would run, and the one after it died on
+    // "Only one task can be scheduled at a time", minutes later and on a
+    // screen with nothing to do with statements.
+    //
+    // Checked by reading the source, deliberately. The failure needs a
+    // BuildOwner that is never scheduled again, and flutter_test's binding
+    // keeps pumping its own — every attempt to stage it here passed whichever
+    // container was used, which would have made a green test mean nothing.
+    // What is actually enforceable is the rule: this call site must build its
+    // own container.
+    final source = File('lib/features/finance/presentation/screens/'
+            'finance_screen.dart')
+        .readAsStringSync();
+
+    expect(
+      source,
+      contains('UncontrolledProviderScope'),
+      reason: 'the document still needs a scope handed to it',
+    );
+    expect(
+      source,
+      isNot(contains('ProviderScope.containerOf')),
+      reason: 'the export must not mount the app\'s own container offscreen',
+    );
+    expect(
+      source,
+      contains('container.dispose()'),
+      reason: 'the throwaway container has to be disposed',
+    );
   });
 
   testWidgets('lays out right-to-left for an Arabic statement', (tester) async {

@@ -29,6 +29,16 @@ class StatementExporter {
   /// instead, and the rasteriser faithfully captures it — which is how a
   /// statement came out as a red page reading "Bad state: No ProviderScope
   /// found", saved and shared as if it were the real thing.
+  ///
+  /// **Never pass the app's own ProviderContainer.** The [BuildOwner] below is
+  /// built once and never scheduled again, so an `UncontrolledProviderScope`
+  /// mounted here becomes a permanently dead vsync for whatever container it
+  /// is given. Hand it the live one and the app's provider scheduler starts
+  /// pointing at an element that can no longer build: the next refresh queues
+  /// a task nothing will run, and the one after it dies on "Only one task can
+  /// be scheduled at a time" — minutes later, somewhere unrelated. Build a
+  /// throwaway container with the few overrides [document] needs, and dispose
+  /// it once this returns.
   Future<Uint8List> renderToImage(
     Widget document, {
     required Size size,

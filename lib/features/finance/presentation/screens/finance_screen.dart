@@ -245,10 +245,23 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
     // taken from the rows being printed rather than left blank.
     final range = filter.rangeFor(visible);
 
-    // The statement renders detached from the app, so nothing is inherited —
-    // the container has to be handed over explicitly or every lookup inside
+    // The statement renders detached from the app, so nothing is inherited and
+    // a scope has to be handed over explicitly — otherwise every lookup inside
     // it fails and the error box is what ends up in the PDF.
-    final container = ProviderScope.containerOf(context);
+    //
+    // A *throwaway* container, never the app's own. Mounting an
+    // UncontrolledProviderScope makes that element the container's vsync, and
+    // this one lives in a BuildOwner that is built exactly once and never
+    // scheduled again. Handing it the live container therefore left the whole
+    // app pointing its provider scheduler at a dead element: the next Firestore
+    // emission set a task that nothing would ever run, and the one after that
+    // hit "Only one task can be scheduled at a time" and killed the process.
+    // The crash landed minutes after an export, on a screen with nothing to do
+    // with statements, which is why it took so long to place.
+    //
+    // The only thing the document reads through a provider is the language, so
+    // that is all this container carries.
+    final locale = ref.read(localeProvider);
     final direction = Directionality.of(context);
     final navigator = Navigator.of(context);
     final fileName = 'be-human-statement-'
@@ -256,6 +269,11 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
         '${DateFormat('yyyyMMdd').format(range.to)}.pdf';
 
     setState(() => _isExporting = true);
+    final container = ProviderContainer(
+      overrides: [
+        localeProvider.overrideWith((ref) => LocaleNotifier()..setLocale(locale)),
+      ],
+    );
     try {
       // Decoded before rendering, never resolved during it: the rasteriser
       // paints in one pass, and an image still loading paints as nothing.
@@ -292,6 +310,9 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('$e')));
     } finally {
+      // Disposed whatever happened. A container left alive keeps a scheduler
+      // alive with it, which is the whole shape of the bug above.
+      container.dispose();
       if (mounted) setState(() => _isExporting = false);
     }
   }
