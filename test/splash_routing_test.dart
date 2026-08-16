@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:be_human_app/core/providers/auth_state_provider.dart';
 import 'package:be_human_app/core/theme/app_theme.dart';
 import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:be_human_app/features/splash/presentation/screens/splash_screen.dart';
@@ -41,7 +42,12 @@ void main() {
     );
 
     return ProviderScope(
-      overrides: [isSignedInProvider.overrideWithValue(signedIn)],
+      overrides: [
+        isSignedInProvider.overrideWithValue(signedIn),
+        // What the splash actually waits on: the settled answer, not the
+        // live one.
+        signedInResolvedProvider.overrideWith((ref) async => signedIn),
+      ],
       child: ScreenUtilInit(
         designSize: const Size(390, 844),
         minTextAdapt: true,

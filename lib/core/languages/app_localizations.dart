@@ -1,13 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class LocaleNotifier extends StateNotifier<Locale> {
-  LocaleNotifier() : super(const Locale('en'));
+import 'package:be_human_app/core/providers/preferences_store.dart';
 
-  void setLocale(Locale locale) => state = locale;
+/// The language the app is displayed in.
+///
+/// Persisted, like the theme. Held only in memory it reset to English on every
+/// launch, which for a team working in Arabic meant changing it again each
+/// time the app was opened.
+class LocaleNotifier extends StateNotifier<Locale> {
+  LocaleNotifier([this._store]) : super(_initial(_store));
+
+  final PreferencesStore? _store;
+
+  static Locale _initial(PreferencesStore? store) {
+    final code = store?.getString(PreferenceKeys.localeCode);
+    // Only a language this build actually ships. A stored code from an older
+    // version would otherwise leave every string showing its own key.
+    return AppLocalizations.supportedLocales.firstWhere(
+      (locale) => locale.languageCode == code,
+      orElse: () => const Locale('en'),
+    );
+  }
+
+  void setLocale(Locale locale) {
+    if (state == locale) return;
+    state = locale;
+    _store?.setString(PreferenceKeys.localeCode, locale.languageCode);
+  }
 }
 
-final localeProvider = StateNotifierProvider<LocaleNotifier, Locale>((ref) => LocaleNotifier());
+final localeProvider = StateNotifierProvider<LocaleNotifier, Locale>(
+  (ref) => LocaleNotifier(ref.watch(preferencesStoreProvider)),
+);
 
 class AppLocalizations {
   static const supportedLocales = [Locale('en'), Locale('ar'), Locale('nl')];

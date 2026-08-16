@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:be_human_app/core/config/app_config.dart';
@@ -15,6 +16,7 @@ import 'package:be_human_app/core/security/security_settings.dart';
 import 'package:be_human_app/core/router/app_router.dart';
 import 'package:be_human_app/core/theme/app_theme.dart';
 import 'package:be_human_app/core/languages/app_localizations.dart';
+import 'package:be_human_app/core/providers/preferences_store.dart';
 import 'package:be_human_app/core/providers/theme_provider.dart';
 
 Future<void> main() async {
@@ -43,9 +45,17 @@ Future<void> main() async {
     );
   }
 
+  // Read before the first frame, so the app opens in the theme and language it
+  // was last left in rather than flashing the defaults and correcting itself.
+  final preferences = await SharedPreferences.getInstance();
+
   runApp(
-    const ProviderScope(
-      child: BeHumanApp(),
+    ProviderScope(
+      overrides: [
+        preferencesStoreProvider
+            .overrideWithValue(SharedPreferencesStore(preferences)),
+      ],
+      child: const BeHumanApp(),
     ),
   );
 }

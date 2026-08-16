@@ -20,3 +20,20 @@ final authStateProvider = StreamProvider<User?>((ref) {
 final signedInUidProvider = Provider<String?>((ref) {
   return ref.watch(authStateProvider).valueOrNull?.uid;
 });
+
+/// Completes once Firebase has actually said whether anyone is signed in.
+///
+/// Distinct from [signedInUidProvider], which answers "right now" and reads as
+/// signed-out while the check is still in flight. The splash screen needs the
+/// settled answer: reading the live value after a fixed delay sent an
+/// already-signed-in user to the login screen whenever Firebase was slower
+/// than the animation, and the router then bounced them to the home screen a
+/// moment later.
+///
+/// A separate provider rather than awaiting [authStateProvider] at the call
+/// site, so it can be overridden in a test without constructing a Firebase
+/// `User`.
+final signedInResolvedProvider = FutureProvider<bool>((ref) async {
+  final user = await ref.watch(authStateProvider.future);
+  return user != null;
+});

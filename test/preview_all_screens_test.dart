@@ -303,7 +303,16 @@ void main() {
           user: entry.value.user,
           shellLocation: entry.value.shell,
         ));
-        await tester.pump(const Duration(milliseconds: 400));
+        // The splash is an animation, so 400ms catches it a third of the way
+        // in with the logo and the wordmark still fading — a frame that says
+        // nothing about how the screen looks. Held to the end of its sequence
+        // instead, which is the state worth reviewing and worth pinning.
+        await tester.pump(entry.key == 'splash'
+            ? const Duration(milliseconds: 1600)
+            : const Duration(milliseconds: 400));
+        // Lets the logo's asset resolve; an unresolved image paints as blank.
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+        await tester.pump();
 
         await expectLater(
           find.byType(MaterialApp),
