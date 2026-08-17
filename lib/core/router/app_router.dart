@@ -1,9 +1,10 @@
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:be_human_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:be_human_app/features/home/presentation/screens/home_screen.dart';
@@ -11,33 +12,57 @@ import 'package:be_human_app/features/proposals/presentation/screens/proposals_l
 import 'package:be_human_app/features/finance/presentation/screens/finance_screen.dart';
 import 'package:be_human_app/features/settings/presentation/screens/settings_screen.dart';
 import 'package:be_human_app/features/splash/presentation/screens/splash_screen.dart';
-import 'package:be_human_app/features/no_internet/presentation/screens/no_internet_screen.dart';
+import 'package:be_human_app/features/archive/presentation/screens/archive_screen.dart';
+import 'package:be_human_app/features/notifications/presentation/screens/notifications_screen.dart';
+import 'package:be_human_app/features/notifications/presentation/widgets/notification_toaster.dart';
+import 'package:be_human_app/features/admin/presentation/screens/admin_dashboard_screen.dart';
+import 'package:be_human_app/core/languages/app_localizations.dart';
 import 'package:be_human_app/core/providers/auth_state_provider.dart';
-import 'package:be_human_app/core/providers/theme_provider.dart';
+import 'package:be_human_app/core/router/page_transitions.dart';
+import 'package:be_human_app/core/theme/app_colors.dart';
+import 'package:be_human_app/core/widgets/app_fab.dart';
+import 'package:be_human_app/features/archive/domain/archive_models.dart';
+import 'package:be_human_app/features/archive/presentation/screens/archive_folder_screen.dart';
 import 'package:be_human_app/features/auth/domain/entities/app_user.dart';
+import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
 
-class AppRouter {
-  static final GoRouter router = GoRouter(
+/// Routes that are reachable without being signed in.
+const _publicRoutes = {'/', '/splash', '/login'};
+
+/// The router is exposed as a provider so it can react to auth changes:
+/// [refreshListenable] re-runs [GoRouter.redirect] every time the Firebase
+/// auth stream emits, which is what makes sign-in and sign-out navigate on
+/// their own.
+final routerProvider = Provider<GoRouter>((ref) {
+  final authListenable = ValueNotifier<AsyncValue<User?>>(const AsyncLoading());
+  ref.listen<AsyncValue<User?>>(
+    authStateProvider,
+    (_, next) => authListenable.value = next,
+    fireImmediately: true,
+  );
+  ref.onDispose(authListenable.dispose);
+
+  return GoRouter(
     initialLocation: '/',
+    refreshListenable: authListenable,
     redirect: (context, state) {
-      final authState = ProviderScope.containerOf(context).read(authStateProvider);
-      final user = authState.when(
-        data: (user) => user,
-        loading: () => null,
-        error: (error, stack) => null,
-      );
-      final isLoggedIn = user != null;
-      
-      // Non-authenticated users cannot access protected routes
-      if (!isLoggedIn && state.matchedLocation != '/login') {
-        return '/login';
+      final authState = authListenable.value;
+      final location = state.matchedLocation;
+
+      // While the auth stream has not produced its first value yet we cannot
+      // tell signed-in from signed-out, so stay put instead of bouncing the
+      // user to /login on every cold start.
+      if (authState.isLoading) return null;
+
+      final isLoggedIn = authState.valueOrNull != null;
+
+      if (!isLoggedIn) {
+        return _publicRoutes.contains(location) ? null : '/login';
       }
-      
-      // Authenticated users should not be on login screen
-      if (isLoggedIn && state.matchedLocation == '/login') {
-        return '/home';
-      }
-      
+
+      // A signed-in user has no reason to sit on the login screen.
+      if (location == '/login') return '/home';
+
       return null;
     },
     routes: [
@@ -54,21 +79,33 @@ class AppRouter {
         name: 'login',
         builder: (context, state) => const LoginScreen(),
       ),
+      // A folder's contents: a real route, outside the shell.
+      //
+      // It used to be pushed with `Navigator.push`, which go_router knows
+      // nothing about. Pushed on the shell's own navigator the bar stayed on
+      // top of it; pushed on the root navigator the bar was gone, but so was
+      // the router's knowledge of where the app actually was — a later
+      // `context.go` swapped the screen underneath while this route stayed
+      // over it, and the app looked stuck. As a route, go_router owns it: the
+      // bar is correctly absent, back works, and navigating away leaves.
       GoRoute(
-        path: '/no-internet',
-        name: 'no-internet',
-        builder: (context, state) => const NoInternetScreen(),
+        path: '/archive/folder',
+        name: 'archive-folder',
+        pageBuilder: (context, state) {
+          final folder = state.extra;
+          // `extra` does not survive a restored or deep-linked route, so a
+          // missing one returns to the archive rather than crashing on a cast.
+          return AppTransitions.push(
+            state.pageKey,
+            folder is ArchiveFolder
+                ? ArchiveFolderScreen(folder: folder)
+                : const ArchiveScreen(),
+          );
+        },
       ),
-      GoRoute(
-        path: '/dashboard',
-        name: 'dashboard',
-        builder: (context, state) => const HomeScreen(), // Temporary placeholder for admin dashboard
-      ),
-      GoRoute(
-        path: '/archive',
-        name: 'archive',
-        builder: (context, state) => const HomeScreen(), // Temporary placeholder for archive
-      ),
+      // Tabs swap instantly. The default page transition slides a whole
+      // screen in on every tap of the bottom bar, which on a bottom-nav app
+      // reads as lag rather than polish — the destination is already "here".
       ShellRoute(
         builder: (context, state, child) {
           return MainShell(location: state.matchedLocation, child: child);
@@ -77,22 +114,44 @@ class AppRouter {
           GoRoute(
             path: '/home',
             name: 'home',
-            builder: (context, state) => const HomeScreen(),
+            pageBuilder: (context, state) =>
+                AppTransitions.tab(state.pageKey, const HomeScreen()),
           ),
           GoRoute(
             path: '/proposals',
             name: 'proposals',
-            builder: (context, state) => const ProposalsListScreen(),
+            pageBuilder: (context, state) =>
+                AppTransitions.tab(state.pageKey, const ProposalsListScreen()),
           ),
           GoRoute(
             path: '/financial',
             name: 'financial',
-            builder: (context, state) => const FinanceScreen(),
+            pageBuilder: (context, state) =>
+                AppTransitions.tab(state.pageKey, const FinanceScreen()),
+          ),
+          GoRoute(
+            path: '/dashboard',
+            name: 'dashboard',
+            pageBuilder: (context, state) =>
+                AppTransitions.tab(state.pageKey, const AdminDashboardScreen()),
+          ),
+          GoRoute(
+            path: '/archive',
+            name: 'archive',
+            pageBuilder: (context, state) =>
+                AppTransitions.tab(state.pageKey, const ArchiveScreen()),
           ),
           GoRoute(
             path: '/settings',
             name: 'settings',
-            builder: (context, state) => const SettingsScreen(),
+            pageBuilder: (context, state) =>
+                AppTransitions.tab(state.pageKey, const SettingsScreen()),
+          ),
+          GoRoute(
+            path: '/notifications',
+            name: 'notifications',
+            pageBuilder: (context, state) =>
+                AppTransitions.tab(state.pageKey, const NotificationsScreen()),
           ),
         ],
       ),
@@ -104,20 +163,22 @@ class AppRouter {
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
-            Text('حدث خطأ: ${state.error.toString()}'),
+            Text(AppLocalizations.of(
+              context, 'router_error', {'error': state.error.toString()},
+            )),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => context.go('/login'),
-              child: const Text('العودة لتسجيل الدخول'),
+              child: Text(AppLocalizations.of(context, 'back_to_login')),
             ),
           ],
         ),
       ),
     ),
   );
-}
+});
 
-class MainShell extends ConsumerStatefulWidget {
+class MainShell extends ConsumerWidget {
   final String location;
   final Widget child;
 
@@ -127,186 +188,252 @@ class MainShell extends ConsumerStatefulWidget {
     super.key,
   });
 
+  /// The bottom bar is driven by the signed-in user's role. While the profile
+  /// is still loading the list is empty and no bar is shown, which also keeps
+  /// the shell from rendering a bar for a signed-out user.
+  static List<NavigationItem> _itemsFor(BuildContext context, UserRole role) {
+    final home = NavigationItem(
+      title: AppLocalizations.of(context, 'home_title'),
+      icon: Iconsax.home,
+      route: '/home',
+    );
+    final proposals = NavigationItem(
+      title: AppLocalizations.of(context, 'proposals'),
+      icon: Iconsax.document,
+      route: '/proposals',
+    );
+    final finance = NavigationItem(
+      title: AppLocalizations.of(context, 'financial'),
+      icon: Iconsax.wallet,
+      route: '/financial',
+    );
+    final archive = NavigationItem(
+      title: AppLocalizations.of(context, 'archive'),
+      icon: Iconsax.archive,
+      route: '/archive',
+    );
+    final settings = NavigationItem(
+      title: AppLocalizations.of(context, 'settings'),
+      icon: Iconsax.setting,
+      route: '/settings',
+    );
+
+    switch (role) {
+      case UserRole.member:
+        // Finance is visible to members but read-only; the add button is
+        // gated on hasFinancialAccess and the rules enforce it server-side.
+        return [home, proposals, finance, archive, settings];
+      case UserRole.manager:
+        return [home, proposals, finance, archive, settings];
+      case UserRole.admin:
+        return [
+          NavigationItem(
+            // A short label: "Admin dashboard" does not fit a five-item bar.
+            title: AppLocalizations.of(context, 'dashboard_short'),
+            icon: Iconsax.home,
+            route: '/dashboard',
+          ),
+          proposals,
+          finance,
+          archive,
+          settings,
+        ];
+    }
+  }
+
   @override
-  ConsumerState<MainShell> createState() => _MainShellState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final role = ref.watch(currentUserStreamProvider).valueOrNull?.role;
+    final items = role == null
+        ? const <NavigationItem>[]
+        : _itemsFor(context, role);
+
+    final selectedIndex = items.indexWhere(
+      (item) => location.startsWith(item.route),
+    );
+
+    return Scaffold(
+      // Transparent so the app-wide gradient shows through; the backdrop is
+      // painted once above the router, not per screen.
+      backgroundColor: Colors.transparent,
+      extendBody: true,
+      // Wrapping the shell rather than each screen means an incoming
+      // notification is announced wherever the user happens to be.
+      //
+      // The inset is published here because this is the only place it can be
+      // read: the Scaffold below consumes the bottom padding, so a screen in
+      // its body sees zero. Zero when there is no bar — a signed-out user, or
+      // a profile still loading — since then there is nothing to clear.
+      body: NavBarInset(
+        height: items.isEmpty
+            ? 0
+            : NavBarInset.barHeight + MediaQuery.paddingOf(context).bottom,
+        child: NotificationToaster(child: child),
+      ),
+      bottomNavigationBar: items.isEmpty
+          ? null
+          : _GlassNavBar(items: items, selectedIndex: selectedIndex),
+    );
+  }
 }
 
-class _MainShellState extends ConsumerState<MainShell> {
-  int _selectedIndex = 0;
-  late final List<NavigationItem> _navigationItems;
-  UserRole _userRole = UserRole.member;
+/// The frosted bar at the bottom of the shell.
+///
+/// `extendBody` on the Scaffold lets content scroll underneath it, which is
+/// the whole point of making it translucent — a solid bar over a gradient
+/// reads as a separate slab stuck to the screen.
+class _GlassNavBar extends StatelessWidget {
+  const _GlassNavBar({required this.items, required this.selectedIndex});
 
-  @override
-  void initState() {
-    super.initState();
-    _determineUserRole();
-  }
-
-  Future<void> _determineUserRole() async {
-    final authState = ref.read(authStateProvider);
-    final user = authState.when(
-      data: (user) => user,
-      loading: () => null,
-      error: (error, stack) => null,
-    );
-
-    if (user == null) {
-      setState(() {
-        _navigationItems = [];
-      });
-      return;
-    }
-
-    // Try to get user role from Firestore first
-    try {
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-      
-      if (userDoc.exists) {
-        final userData = userDoc.data();
-        _userRole = UserRole.values.firstWhere(
-          (role) => role.toString() == userData?['role'],
-          orElse: () => UserRole.member,
-        );
-      } else {
-        // If document doesn't exist, create it with default role
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .set({
-          'email': user.email,
-          'role': 'UserRole.member',
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-        _userRole = UserRole.member;
-      }
-    } catch (e) {
-      // On any error, try to get from AppUser provider or fallback to member
-      _userRole = UserRole.member;
-    }
-
-    setState(() {
-      _buildNavigationItems();
-      _setInitialIndex();
-    });
-  }
-
-  void _buildNavigationItems() {
-    switch (_userRole) {
-      case UserRole.member:
-        _navigationItems = [
-          NavigationItem(title: 'Home', icon: Iconsax.home, route: '/home'),
-          NavigationItem(title: 'Proposals', icon: Iconsax.document, route: '/proposals'),
-          NavigationItem(title: 'Archive', icon: Iconsax.archive, route: '/archive'),
-          NavigationItem(title: 'Settings', icon: Iconsax.setting, route: '/settings'),
-        ];
-        break;
-      case UserRole.manager:
-        _navigationItems = [
-          NavigationItem(title: 'Home', icon: Iconsax.home, route: '/home'),
-          NavigationItem(title: 'Proposals', icon: Iconsax.document, route: '/proposals'),
-          NavigationItem(title: 'Finance', icon: Iconsax.wallet, route: '/financial'),
-          NavigationItem(title: 'Archive', icon: Iconsax.archive, route: '/archive'),
-          NavigationItem(title: 'Settings', icon: Iconsax.setting, route: '/settings'),
-        ];
-        break;
-      case UserRole.admin:
-        _navigationItems = [
-          NavigationItem(title: 'Dashboard', icon: Iconsax.home, route: '/dashboard'),
-          NavigationItem(title: 'Settings', icon: Iconsax.setting, route: '/settings'),
-        ];
-        break;
-    }
-  }
-
-  void _setInitialIndex() {
-    _selectedIndex = _navigationItems.indexWhere(
-      (item) => widget.location.startsWith(item.route),
-    );
-    
-    // Ensure we have a valid selected index, default to 0
-    if (_selectedIndex == -1 && _navigationItems.isNotEmpty) {
-      _selectedIndex = 0;
-    }
-  }
+  final List<NavigationItem> items;
+  final int selectedIndex;
 
   @override
   Widget build(BuildContext context) {
-    final isDarkMode = ref.watch(themeProvider);
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final scaffoldBackgroundColor = isDarkMode ? const Color(0xFF0A1628) : const Color(0xFFF0F4F8);
-    final bottomNavColor = isDarkMode 
-        ? const Color(0xFF0A1628).withOpacity(0.9) 
-        : Colors.white.withOpacity(0.92);
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final scheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      body: widget.child,
-      backgroundColor: scaffoldBackgroundColor,
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: bottomNavColor,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: _navigationItems.asMap().entries.map((entry) {
-                final index = entry.key;
-                final item = entry.value;
-                final isSelected = _selectedIndex == index;
-
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedIndex = index;
-                    });
-                    context.go(item.route);
-                  },
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFF4A90D9).withOpacity(0.2)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
-                      border: isSelected
-                          ? Border.all(
-                              color: const Color(0xFF4A90D9),
-                              width: 1,
-                            )
-                          : null,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          item.icon,
-                          color: isSelected
-                              ? const Color(0xFF4A90D9)
-                              : colorScheme.onSurface.withOpacity(0.6),
-                          size: 24,
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.card)),
+      // See GlassAppBar: this is the second always-on blur pass, and the wider
+      // of the two. Halved for the same reason.
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 11, sigmaY: 11),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: dark ? Colors.white.withOpacity(0.06) : Colors.white.withOpacity(0.55),
+            border: Border(top: BorderSide(color: AppColors.glassStroke(dark))),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
+              child: Stack(
+                children: [
+                  // The highlight is one pill that travels, not a colour that
+                  // appears under the new tab while another disappears. Moving
+                  // it is what ties the two ends of a tap together — the eye
+                  // follows it across instead of relocating.
+                  if (selectedIndex >= 0)
+                    Positioned.fill(
+                      child: AnimatedAlign(
+                        duration: const Duration(milliseconds: 320),
+                        curve: Curves.easeOutCubic,
+                        // -1 is the first slot, 1 the last. With one item the
+                        // fraction would divide by zero, so it centres.
+                        alignment: Alignment(
+                          items.length == 1
+                              ? 0
+                              : (selectedIndex / (items.length - 1)) * 2 - 1,
+                          0,
                         ),
-                        SizedBox(height: 4),
-                        Text(
-                          item.title,
-                          style: TextStyle(
-                            color: isSelected
-                                ? const Color(0xFF4A90D9)
-                                : colorScheme.onSurface.withOpacity(0.6),
-                            fontSize: 10,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        child: FractionallySizedBox(
+                          widthFactor: 1 / items.length,
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.brand.withOpacity(dark ? 0.20 : 0.14),
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.button),
+                            ),
                           ),
                         ),
-                      ],
+                      ),
+                    ),
+                  Row(
+                    children: [
+                      for (var index = 0; index < items.length; index++)
+                        _NavButton(
+                          item: items[index],
+                          isSelected: selectedIndex == index,
+                          color: scheme.onSurface,
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavButton extends StatelessWidget {
+  const _NavButton({
+    required this.item,
+    required this.isSelected,
+    required this.color,
+  });
+
+  final NavigationItem item;
+  final bool isSelected;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tint = isSelected ? AppColors.brand : color.withOpacity(0.55);
+
+    return Expanded(
+      child: Semantics(
+        selected: isSelected,
+        button: true,
+        child: InkWell(
+          onTap: () => context.go(item.route),
+          borderRadius: BorderRadius.circular(AppRadius.button),
+          // Transparent: the highlight behind it is drawn once by the bar and
+          // slides, rather than each button painting its own.
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // The icon lifts and grows a little as it takes selection,
+                // which is what makes the tap feel answered rather than just
+                // obeyed.
+                TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0, end: isSelected ? 1 : 0),
+                  duration: const Duration(milliseconds: 320),
+                  curve: Curves.easeOutBack,
+                  builder: (context, t, _) => Transform.translate(
+                    offset: Offset(0, -2 * t),
+                    child: Transform.scale(
+                      // `easeOutBack` overshoots past 1, so the icon springs
+                      // slightly beyond its size and settles back.
+                      scale: 1 + 0.12 * t,
+                      // Lerped inside the builder rather than passed as a
+                      // fixed child: the colour then travels with the motion
+                      // instead of snapping at the start of it.
+                      child: Icon(
+                        item.icon,
+                        size: 22,
+                        color: Color.lerp(color.withOpacity(0.55),
+                            AppColors.brand, t.clamp(0.0, 1.0)),
+                      ),
                     ),
                   ),
-                );
-              }).toList(),
+                ),
+                const SizedBox(height: 4),
+                // Colour and weight cross-fade rather than snapping.
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOut,
+                  style: theme.textTheme.labelSmall!.copyWith(
+                    color: tint,
+                    fontSize: 10,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                  child: Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -326,64 +453,4 @@ class NavigationItem {
     required this.route,
   });
 
-  // New constructor for default items with built-in logic
-  factory NavigationItem.home({
-    required String route,
-  }) {
-    return NavigationItem(
-      title: 'Home',
-      icon: Iconsax.home,
-      route: route,
-    );
-  }
-
-  factory NavigationItem.proposals({
-    required String route,
-  }) {
-    return NavigationItem(
-      title: 'Proposals',
-      icon: Iconsax.document,
-      route: route,
-    );
-  }
-
-  factory NavigationItem.finance({
-    required String route,
-  }) {
-    return NavigationItem(
-      title: 'Finance',
-      icon: Iconsax.wallet,
-      route: route,
-    );
-  }
-
-  factory NavigationItem.archive({
-    required String route,
-  }) {
-    return NavigationItem(
-      title: 'Archive',
-      icon: Iconsax.archive,
-      route: route,
-    );
-  }
-
-  factory NavigationItem.dashboard({
-    required String route,
-  }) {
-    return NavigationItem(
-      title: 'Dashboard',
-      icon: Iconsax.home,
-      route: route,
-    );
-  }
-
-  factory NavigationItem.settings({
-    required String route,
-  }) {
-    return NavigationItem(
-      title: 'Settings',
-      icon: Iconsax.setting,
-      route: route,
-    );
-  }
 }

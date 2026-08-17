@@ -1,0 +1,191 @@
+# Codemagic build configuration.
+#
+# This exists because iOS can only be compiled on macOS and this team has no
+# Mac. Codemagic runs the build on one of theirs. It removes the *machine*
+# requirement — it does not remove Apple's account requirement, which is a
+# separate thing and is why there are two iOS workflows below rather than one.
+#
+# See docs/ios.md for what each one needs before it will run.
+
+definitions:
+  # Pinned rather than "stable". A moving toolchain turns an unrelated upstream
+  # change into a red build here, and this repo is read by people who would
+  # have no way of telling the two apart.
+  flutter_version: &flutter_version 3.44.9
+
+  scripts:
+    - &analyze
+      name: Analyze and test
+      script: |
+        flutter pub get
+        flutter analyze
+        flutter test
+
+    # Flutter 3.44 turns Swift Package Manager on by default for iOS, and the
+    # Firebase versions this app pins predate working SPM support:
+    # firebase_core 3.6.0's Package.swift reads firebase_sdk_version.rb from a
+    # path that only exists in the CocoaPods layout, so xcodebuild dies with
+    #
+    #   Package.swift:75: Fatal error: Failed to load configuration:
+    #   fileNotFound … firebase_sdk_version.rb
+    #
+    # before compiling a single file. The Xcode project has had its SPM
+    # integration removed, and ios/Podfile has always been the real
+    # configuration; this stops Flutter putting SPM back on the build machine.
+    - &use_cocoapods
+      name: Use CocoaPods, not Swift Package Manager
+      script: |
+        flutter config --no-enable-swift-package-manager
+
+    # GoogleService-Info.plist is not in the repository and the app cannot
+    # start without it. It is stored as a base64 environment variable and
+    # written back here — base64 because Codemagic variables are single-line
+    # and the file is XML.
+    - &write_firebase_plist
+      name: Write GoogleService-Info.plist
+      script: |
+        if [ -z "$GOOGLE_SERVICE_INFO_PLIST" ]; then
+          echo "GOOGLE_SERVICE_INFO_PLIST is not set."
+          echo "The app cannot start without it — see docs/ios.md."
+          exit 1
+        fi
+        echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode \
+          > "$CM_BUILD_DIR/ios/Runner/GoogleService-Info.plist"
+        # Fails the build here, with a clear reason, rather than at launch on
+        # a phone with an unreadable one.
+        plutil -lint "$CM_BUILD_DIR/ios/Runner/GoogleService-Info.plist"
+
+workflows:
+  # --------------------------------------------------------------------------
+  # An unsigned .ipa. Needs no Apple account whatsoever.
+  #
+  # iOS refuses to install an unsigned app, so this one cannot be handed to
+  # anybody as it stands. Two things it is genuinely for:
+  #
+  #  * proving the build works. Nobody has ever compiled the iOS side of this
+  #    project, and this says whether the Podfile, the deployment target and
+  #    the Firebase config are right without spending $99 to find out.
+  #  * feeding a sideloader. Sideloadly or AltStore, on a Windows PC, re-sign
+  #    an unsigned ipa with an ordinary free Apple ID and install it over a
+  #    cable — good for seven days, then it has to be done again.
+  #
+  # For the team to actually keep the app, use ios-testflight below.
+  # --------------------------------------------------------------------------
+  ios-unsigned:
+    name: iOS — unsigned ipa (no Apple account)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: *flutter_version
+      xcode: latest
+      cocoapods: default
+      groups:
+        - supabase
+        - firebase-ios
+    scripts:
+      - *use_cocoapods
+      - *analyze
+      - *write_firebase_plist
+      # Both Supabase values are compile-time constants read through
+      # String.fromEnvironment, so they must be passed at build time. They come
+      # from the `supabase` environment group, never from the repository —
+      # env.json is gitignored precisely so keys never land here.
+      #
+      # The anon key is designed to ship inside a client app; it grants only
+      # what the bucket policies allow. The service_role key must never be
+      # added to any group named above.
+      - name: Build unsigned
+        script: |
+          flutter build ios --release --no-codesign \
+            --dart-define=SUPABASE_URL=$SUPABASE_URL \
+            --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
+
+      # `flutter build ios` stops at a .app bundle. An .ipa is only that bundle
+      # inside a folder called Payload, zipped — there is no signing in the
+      # packaging itself, which is exactly why this step needs no certificate.
+      - name: Package it as an ipa
+        script: |
+          set -e
+          cd "$CM_BUILD_DIR"
+          rm -rf build/ios/unsigned
+          mkdir -p build/ios/unsigned/Payload
+          cp -R build/ios/iphoneos/Runner.app build/ios/unsigned/Payload/
+          cd build/ios/unsigned
+          # The folder must be named Payload and must be at the archive root;
+          # a sideloader rejects the file outright otherwise.
+          zip -qry be-human-unsigned.ipa Payload
+          ls -lh be-human-unsigned.ipa
+    artifacts:
+      - build/ios/unsigned/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+  # --------------------------------------------------------------------------
+  # The one that actually puts the app on people's phones.
+  #
+  # Requires the Apple Developer Program ($99/year). A free Apple ID cannot be
+  # used here: Codemagic signs with an App Store Connect API key, and Apple
+  # only issues those to paid accounts. Free-account signing works solely
+  # through Xcode on a Mac, which is the situation this file exists to avoid.
+  # --------------------------------------------------------------------------
+  ios-testflight:
+    name: iOS — TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 90
+    integrations:
+      app_store_connect: codemagic-api-key
+    environment:
+      flutter: *flutter_version
+      xcode: latest
+      cocoapods: default
+      groups:
+        - supabase
+        - firebase-ios
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.behuman.beHumanApp
+    scripts:
+      - *use_cocoapods
+      - *analyze
+      - *write_firebase_plist
+      - name: Build the ipa
+        # $BUILD_NUMBER is Codemagic's own counter and rises on every run.
+        # pubspec.yaml's number is not used: TestFlight refuses a build number
+        # it has already seen, so a fixed one means every upload after the
+        # first is rejected.
+        script: |
+          flutter build ipa --release \
+            --build-number=$BUILD_NUMBER \
+            --dart-define=SUPABASE_URL=$SUPABASE_URL \
+            --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        # Not submitted for App Store review: this is an internal tool for one
+        # organisation, not a public app.
+        submit_to_app_store: false
+
+  # --------------------------------------------------------------------------
+  # Android, so both platforms come off the same checks and the same keys.
+  # --------------------------------------------------------------------------
+  android-apk:
+    name: Android — APK
+    instance_type: linux_x2
+    max_build_duration: 45
+    environment:
+      flutter: *flutter_version
+      groups:
+        - supabase
+    scripts:
+      - *analyze
+      - name: Build the APK
+        script: |
+          flutter build apk --release \
+            --dart-define=SUPABASE_URL=$SUPABASE_URL \
+            --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk

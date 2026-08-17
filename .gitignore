@@ -43,3 +43,16 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local Supabase keys passed via --dart-define-from-file. env.example.json is
+# the committed template; env.json holds the real values and must not be.
+env.json
+run.ps1
+run.sh
+
+# Android release signing. The keystore and its passwords must never be
+# committed — anyone holding them can publish an update as this app.
+android/key.properties
+*.jks
+*.keystore
+test/failures/

@@ -1,0 +1,147 @@
+rules_version = '2';
+
+// Access model for the Be Human platform.
+//
+// Roles live on the user's own document in /users/{uid} as the strings
+// 'member' | 'manager' | 'admin', matching how
+// AppUser serializes them. Teams are 'gaza' | 'netherlands'.
+//
+// Deploy with:  firebase deploy --only firestore:rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function profile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasProfile() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function role() {
+      return profile().role;
+    }
+
+    function isAdmin() {
+      return hasProfile() && role() == 'admin';
+    }
+
+    // Managers and admins are the reviewers: they decide on proposals and own
+    // the financial ledger.
+    function isReviewer() {
+      return hasProfile()
+        && (role() == 'manager' || role() == 'admin');
+    }
+
+    match /users/{userId} {
+      // Everyone signed in can read profiles — the app resolves submitter
+      // names and the reviewer list from here.
+      allow read: if hasProfile();
+
+      // Only an admin may create profiles or change a role. A user may edit
+      // their own document — their profile picture, for instance — but must
+      // not promote themselves, so role and team have to stay identical to
+      // what is already stored.
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (request.auth.uid == userId
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.team == resource.data.team
+            && request.resource.data.uid == resource.data.uid);
+    }
+
+    match /proposals/{proposalId} {
+      allow read: if hasProfile();
+
+      // Gaza team members submit proposals; the document must be stamped with
+      // the submitter's own uid so authorship cannot be forged.
+      allow create: if hasProfile()
+        && request.resource.data.submittedBy == request.auth.uid;
+
+      // Only reviewers change a proposal's status after submission.
+      allow update: if isReviewer();
+
+      // A submitter may withdraw their own proposal while it is still
+      // pending; once reviewed it belongs to the record. Statuses are stored
+      // as stable keys, but documents written before that used the Arabic
+      // label, so both are accepted here.
+      allow delete: if isAdmin()
+        || (hasProfile()
+            && resource.data.submittedBy == request.auth.uid
+            && (resource.data.status == 'pending' || resource.data.status == 'معلق'));
+    }
+
+    match /transactions/{transactionId} {
+      allow read: if hasProfile();
+
+      // Both teams record movements: money is received in the Netherlands and
+      // spent in Gaza, and a ledger only one end can write to is always out of
+      // date. Accountability comes from the record itself — every entry
+      // carries the transfer notice behind it — not from locking the door.
+      allow create, update: if hasProfile();
+
+      // Removing an entry from a financial record stays with admins.
+      allow delete: if isAdmin();
+    }
+
+    // The archive is shared space rather than per-user: any signed-in member
+    // may create or remove a folder and its documents, including ones
+    // another member added. Scope was set this way deliberately, not an
+    // oversight — tighten to an owner check if that changes.
+    match /archive_folders/{folderId} {
+      allow read, create, delete: if hasProfile();
+    }
+
+    match /archive_documents/{documentId} {
+      allow read, create, delete: if hasProfile();
+    }
+
+    // Projects and the organisation's own description, shown on every user's
+    // home screen. Everyone reads them; only an admin publishes, whether by
+    // typing one in or by importing from the website.
+    match /projects/{projectId} {
+      allow read: if hasProfile();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /site_content/{documentId} {
+      allow read: if hasProfile();
+      allow write: if isAdmin();
+    }
+
+    // Notifications are a shared feed: one document per event, read by
+    // everyone whose role puts them in its audience. Who that is gets
+    // decided in the app, not here — the audience field is data, and the
+    // feed carries no detail beyond a name and an amount.
+    match /notifications/{notificationId} {
+      allow read: if hasProfile();
+
+      // The publisher must stamp the event with their own uid, so nobody can
+      // post an announcement in someone else's name.
+      allow create: if hasProfile()
+        && request.resource.data.actorUid == request.auth.uid;
+
+      // The only permitted update is marking it read, and only for yourself:
+      // no other field may change, and the uid added must be your own.
+      allow update: if hasProfile()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy'])
+        && request.resource.data.readBy.hasAll(resource.data.readBy)
+        && request.resource.data.readBy.removeAll(resource.data.readBy)
+             .hasOnly([request.auth.uid]);
+
+      allow delete: if isAdmin();
+    }
+
+    // Anything not matched above is denied. Never replace this with a
+    // blanket allow — that is what "test mode" does, and it exposes every
+    // proposal and financial record to the public internet.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

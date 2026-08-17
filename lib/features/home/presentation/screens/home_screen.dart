@@ -1,246 +1,309 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:be_human_app/core/theme/app_theme.dart';
-import 'package:be_human_app/core/providers/auth_state_provider.dart';
+import 'package:go_router/go_router.dart';
 
-String _capitalizeFirst(String text) {
-  if (text.isEmpty) return text;
-  return text[0].toUpperCase() + text.substring(1).toLowerCase();
-}
+import 'package:be_human_app/core/languages/app_localizations.dart';
+import 'package:be_human_app/core/theme/app_colors.dart';
+import 'package:be_human_app/core/utils/formatters.dart';
+import 'package:be_human_app/features/finance/domain/money.dart';
+import 'package:be_human_app/core/widgets/glass.dart';
+import 'package:be_human_app/core/widgets/state_views.dart';
+import 'package:be_human_app/core/widgets/stat_card.dart';
+import 'package:be_human_app/core/widgets/status_chip.dart';
+import 'package:be_human_app/features/admin/presentation/providers/admin_providers.dart';
+import 'package:be_human_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:be_human_app/features/auth/presentation/widgets/user_avatar.dart';
+import 'package:be_human_app/features/home/presentation/widgets/team_section.dart';
+import 'package:be_human_app/features/notifications/presentation/widgets/notification_bell.dart';
+import 'package:be_human_app/features/projects/presentation/providers/project_providers.dart';
+import 'package:be_human_app/features/projects/presentation/widgets/project_card.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(authStateProvider);
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final colorScheme = Theme.of(context).colorScheme;
+    final user = ref.watch(currentUserStreamProvider);
+    final totals = MoneyTotals.of(
+      ref.watch(transactionsProvider).valueOrNull ?? const [],
+    );
+    final proposals = ref.watch(proposalsProvider);
+    final projects = ref.watch(projectsProvider);
+    final siteContent = ref.watch(siteContentProvider).valueOrNull ?? const {};
+    final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: isDarkMode ? const Color(0xFF0A1628) : const Color(0xFFF0F4F8),
+      backgroundColor: Colors.transparent,
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: 20.h),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20.w),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Welcome',
-                    style: TextStyle(
-                      color: colorScheme.onSurface,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    user.when(
-                      data: (user) {
-                        if (user?.email == null) return 'Guest';
-                        final email = user!.email!;
-                        final firstName = email.split('@').first;
-                        return '${_capitalizeFirst(firstName)}';
-                      },
-                      loading: () => 'Loading...',
-                      error: (error, stack) => 'Guest',
-                    ),
-                    style: TextStyle(
-                      color: colorScheme.primary,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 30.h),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20.w),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: EdgeInsets.all(16.r),
-                      decoration: AppTheme.statCardDark(Colors.blue),
+        bottom: false,
+        child: SingleChildScrollView(
+          // Room for the floating navigation bar the shell extends behind.
+          padding: const EdgeInsets.only(bottom: 110),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: AppSpacing.lg),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                child: Row(
+                  children: [
+                    // Tapping your own face is the shortest route to your own
+                    // account, and it is where people reach for it first.
+                    if (user.valueOrNull != null)
+                      GestureDetector(
+                        onTap: () => context.go('/settings'),
+                        child: UserAvatar(
+                          photoPath: user.valueOrNull!.photoPath,
+                          name: user.valueOrNull!.name,
+                          radius: 22,
+                        ),
+                      ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'الرصيد',
-                            style: TextStyle(
-                              color: Colors.blue,
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            AppLocalizations.of(context, 'overview'),
+                            style: theme.textTheme.bodySmall,
                           ),
-                          SizedBox(height: 8.h),
                           Text(
-                            '3000\$',
-                            style: TextStyle(
-                              color: Colors.blue,
-                              fontSize: 20.sp,
-                              fontWeight: FontWeight.bold,
+                            user.when(
+                              data: (u) => u?.name ?? '',
+                              loading: () => '…',
+                              error: (_, __) => '',
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.headlineSmall,
                           ),
                         ],
                       ),
                     ),
-                  ),
-                  SizedBox(width: 16.w),
-                  Expanded(
-                    child: Container(
-                      padding: EdgeInsets.all(16.r),
-                      decoration: AppTheme.statCardDark(Colors.green),
-                      child: Column(
-                        children: [
-                          Text(
-                            'الوارد',
-                            style: TextStyle(
-                              color: Colors.green,
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          SizedBox(height: 8.h),
-                          Text(
-                            '5000\$',
-                            style: TextStyle(
-                              color: Colors.green,
-                              fontSize: 20.sp,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 16.w),
-                  Expanded(
-                    child: Container(
-                      padding: EdgeInsets.all(16.r),
-                      decoration: AppTheme.statCardDark(Colors.red),
-                      child: Column(
-                        children: [
-                          Text(
-                            'الصادر',
-                            style: TextStyle(
-                              color: Colors.red,
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          SizedBox(height: 8.h),
-                          Text(
-                            '2000\$',
-                            style: TextStyle(
-                              color: Colors.red,
-                              fontSize: 20.sp,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 30.h),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20.w),
-              child: Text(
-                'آخر المقترحات',
-                style: TextStyle(
-                  color: colorScheme.onSurface,
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.bold,
+                    const NotificationBell(),
+                  ],
                 ),
               ),
-            ),
-            SizedBox(height: 16.h),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20.w),
-              child: Container(
-                padding: EdgeInsets.all(16.r),
-                decoration: isDarkMode 
-                    ? AppTheme.glassCardDark()
-                    : AppTheme.glassCardLight(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 40.w,
-                          height: 40.h,
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(8.r),
-                          ),
-                          child: const Icon(
-                            Icons.description,
-                            color: Colors.blue,
-                            size: 24,
-                          ),
-                        ),
-                        SizedBox(width: 12.w),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'مشروع تطوير المدارس',
-                                style: TextStyle(
-                                  color: colorScheme.onSurface,
-                                  fontSize: 16.sp,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                'تم التقديم في 2024-01-15',
-                                style: TextStyle(
-                                  color: colorScheme.onSurface.withOpacity(0.6),
-                                  fontSize: 12.sp,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+              const SizedBox(height: AppSpacing.xl),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                child: StatCardRow(
+                  cards: [
+                    StatCard(
+                      label: AppLocalizations.of(context, 'balance_current'),
+                      amount: Money.format(totals.balanceEur, StatementCurrency.eur),
+                      color: AppColors.brand,
+                      icon: Icons.account_balance_wallet_outlined,
                     ),
-                    SizedBox(height: 12.h),
-                    Row(
-                      children: [
-                        Text(
-                          'المبلغ المطلوب:',
-                          style: TextStyle(
-                            color: colorScheme.onSurface.withOpacity(0.8),
-                            fontSize: 14.sp,
-                          ),
-                        ),
-                        SizedBox(width: 4.w),
-                        Text(
-                          '50,000\$',
-                          style: TextStyle(
-                            color: colorScheme.primary,
-                            fontSize: 14.sp,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+                    StatCard(
+                      label: AppLocalizations.of(context, 'incoming'),
+                      amount: Money.format(totals.incomeEur, StatementCurrency.eur),
+                      color: AppColors.success,
+                      icon: Icons.south_west,
+                    ),
+                    StatCard(
+                      label: AppLocalizations.of(context, 'outgoing'),
+                      amount: Money.format(totals.expenseEur, StatementCurrency.eur),
+                      color: AppColors.danger,
+                      icon: Icons.north_east,
                     ),
                   ],
                 ),
               ),
-            ),
-            const Spacer(),
-          ],
+              const SizedBox(height: AppSpacing.xl),
+
+              // What the organisation says about itself, straight from the
+              // website. Hidden entirely when nobody has imported it yet,
+              // rather than leaving an empty card on the screen.
+              if ((siteContent['mission'] ?? '').isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.xl, 0, AppSpacing.xl, AppSpacing.xl,
+                  ),
+                  child: GlassCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.public, size: 16, color: AppColors.brand),
+                            const SizedBox(width: 6),
+                            Text(
+                              AppLocalizations.of(context, 'about_org'),
+                              style: theme.textTheme.labelSmall
+                                  ?.copyWith(color: AppColors.brand),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          siteContent['mission']!,
+                          maxLines: 4,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                child: Text(
+                  AppLocalizations.of(context, 'latest_projects'),
+                  style: theme.textTheme.titleLarge,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              projects.when(
+                loading: () => const LoadingStateView(),
+                error: (error, _) => ErrorStateView(error: error),
+                data: (items) {
+                  if (items.isEmpty) {
+                    return EmptyStateView(
+                      icon: Icons.volunteer_activism_outlined,
+                      message: AppLocalizations.of(context, 'no_projects'),
+                    );
+                  }
+                  return Column(
+                    children: [
+                      for (final project in items.take(3))
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.xl, 0, AppSpacing.xl, AppSpacing.md,
+                          ),
+                          child: ProjectCard(
+                            title: project.title,
+                            description: project.description,
+                            beneficiaries: project.beneficiaries,
+                            location: project.location,
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+
+              const SizedBox(height: AppSpacing.lg),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        AppLocalizations.of(context, 'recent_proposals'),
+                        style: theme.textTheme.titleLarge,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => context.go('/proposals'),
+                      child: Text(AppLocalizations.of(context, 'view_all')),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              proposals.when(
+                loading: () => const LoadingStateView(),
+                error: (error, _) => ErrorStateView(error: error),
+                data: (items) {
+                  if (items.isEmpty) {
+                    return EmptyStateView(
+                      icon: Icons.description_outlined,
+                      message: AppLocalizations.of(context, 'no_proposals'),
+                    );
+                  }
+                  return Column(
+                    children: [
+                      for (final proposal in items.take(3))
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.xl, 0, AppSpacing.xl, AppSpacing.md,
+                          ),
+                          child: _ProposalPreview(proposal: proposal),
+                        ),
+                    ],
+                  );
+                },
+              ),
+
+              const SizedBox(height: AppSpacing.lg),
+              const TeamSection(),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _ProposalPreview extends StatelessWidget {
+  const _ProposalPreview({required this.proposal});
+
+  final Map<String, dynamic> proposal;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final status = proposal['status'];
+
+    return GlassCard(
+      onTap: () => context.go('/proposals'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: StatusChip.colorFor(status).withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(AppRadius.small),
+                ),
+                child: Icon(
+                  Icons.description_outlined,
+                  color: StatusChip.colorFor(status),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      proposal['title'] as String? ??
+                          proposal['fileName'] as String? ??
+                          AppLocalizations.of(context, 'proposal_placeholder'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      Formatters.date(proposal['date']),
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              // Localised and colour-coded. This was printing the stored key —
+              // "pending" — in English no matter the app's language.
+              StatusChip(status: status, compact: true),
+              const Spacer(),
+              Text(
+                Formatters.amount(proposal['amount']),
+                style: theme.textTheme.titleMedium?.copyWith(color: AppColors.brand),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

@@ -1,8 +1,18 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required in the main manifest: the debug manifest that also declares
+         this is not merged into release builds. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Android 13 (API 33) and later. Without this declared, the runtime
+         permission dialog never appears — requestPermission() returns denied
+         without asking, and no notification is ever shown. On older versions
+         it is ignored. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
     <application
-        android:label="be_human_app"
+        android:label="Be Human"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -25,6 +35,18 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- The small icon drawn in the status bar. Android renders a
+             notification icon as a silhouette from its alpha channel, so
+             without this it falls back to the launcher icon and shows a solid
+             white square. ic_notification is a flat white shape, which is what
+             the platform actually wants. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_tint" />
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

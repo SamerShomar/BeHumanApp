@@ -1,0 +1,14 @@
+# Supabase CLI project config.
+#
+# `project_id` is only a local label for the CLI's own state directory; the
+# real project is chosen with `supabase link --project-ref <ref>`.
+project_id = "be-human-app"
+
+[functions.send-notification]
+# Callers must present a valid Supabase key. The app sends the anon key, which
+# is the same one it already uses for file storage — no new secret ships in the
+# APK. This is not the security boundary on its own: the function reads the
+# notification text from Firestore rather than from the request, and refuses
+# events older than five minutes, so a leaked anon key cannot be used to send
+# arbitrary alerts.
+verify_jwt = true

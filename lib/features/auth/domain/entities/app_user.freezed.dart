@@ -25,7 +25,10 @@ mixin _$AppUser {
   String get name => throw _privateConstructorUsedError;
   UserRole get role => throw _privateConstructorUsedError;
   UserTeam get team => throw _privateConstructorUsedError;
-  String? get photoUrl => throw _privateConstructorUsedError;
+
+  /// Object path of the avatar inside the storage bucket, not a URL — the
+  /// bucket is private, so a viewable link is minted on demand and expires.
+  String? get photoPath => throw _privateConstructorUsedError;
   bool get isActive => throw _privateConstructorUsedError;
   DateTime? get createdAt => throw _privateConstructorUsedError;
 
@@ -49,7 +52,7 @@ abstract class $AppUserCopyWith<$Res> {
       String name,
       UserRole role,
       UserTeam team,
-      String? photoUrl,
+      String? photoPath,
       bool isActive,
       DateTime? createdAt});
 }
@@ -74,7 +77,7 @@ class _$AppUserCopyWithImpl<$Res, $Val extends AppUser>
     Object? name = null,
     Object? role = null,
     Object? team = null,
-    Object? photoUrl = freezed,
+    Object? photoPath = freezed,
     Object? isActive = null,
     Object? createdAt = freezed,
   }) {
@@ -99,9 +102,9 @@ class _$AppUserCopyWithImpl<$Res, $Val extends AppUser>
           ? _value.team
           : team // ignore: cast_nullable_to_non_nullable
               as UserTeam,
-      photoUrl: freezed == photoUrl
-          ? _value.photoUrl
-          : photoUrl // ignore: cast_nullable_to_non_nullable
+      photoPath: freezed == photoPath
+          ? _value.photoPath
+          : photoPath // ignore: cast_nullable_to_non_nullable
               as String?,
       isActive: null == isActive
           ? _value.isActive
@@ -128,7 +131,7 @@ abstract class _$$AppUserImplCopyWith<$Res> implements $AppUserCopyWith<$Res> {
       String name,
       UserRole role,
       UserTeam team,
-      String? photoUrl,
+      String? photoPath,
       bool isActive,
       DateTime? createdAt});
 }
@@ -151,7 +154,7 @@ class __$$AppUserImplCopyWithImpl<$Res>
     Object? name = null,
     Object? role = null,
     Object? team = null,
-    Object? photoUrl = freezed,
+    Object? photoPath = freezed,
     Object? isActive = null,
     Object? createdAt = freezed,
   }) {
@@ -176,9 +179,9 @@ class __$$AppUserImplCopyWithImpl<$Res>
           ? _value.team
           : team // ignore: cast_nullable_to_non_nullable
               as UserTeam,
-      photoUrl: freezed == photoUrl
-          ? _value.photoUrl
-          : photoUrl // ignore: cast_nullable_to_non_nullable
+      photoPath: freezed == photoPath
+          ? _value.photoPath
+          : photoPath // ignore: cast_nullable_to_non_nullable
               as String?,
       isActive: null == isActive
           ? _value.isActive
@@ -201,7 +204,7 @@ class _$AppUserImpl implements _AppUser {
       required this.name,
       required this.role,
       required this.team,
-      this.photoUrl,
+      this.photoPath,
       this.isActive = true,
       this.createdAt});
 
@@ -218,8 +221,11 @@ class _$AppUserImpl implements _AppUser {
   final UserRole role;
   @override
   final UserTeam team;
+
+  /// Object path of the avatar inside the storage bucket, not a URL — the
+  /// bucket is private, so a viewable link is minted on demand and expires.
   @override
-  final String? photoUrl;
+  final String? photoPath;
   @override
   @JsonKey()
   final bool isActive;
@@ -228,7 +234,7 @@ class _$AppUserImpl implements _AppUser {
 
   @override
   String toString() {
-    return 'AppUser(uid: $uid, email: $email, name: $name, role: $role, team: $team, photoUrl: $photoUrl, isActive: $isActive, createdAt: $createdAt)';
+    return 'AppUser(uid: $uid, email: $email, name: $name, role: $role, team: $team, photoPath: $photoPath, isActive: $isActive, createdAt: $createdAt)';
   }
 
   @override
@@ -241,8 +247,8 @@ class _$AppUserImpl implements _AppUser {
             (identical(other.name, name) || other.name == name) &&
             (identical(other.role, role) || other.role == role) &&
             (identical(other.team, team) || other.team == team) &&
-            (identical(other.photoUrl, photoUrl) ||
-                other.photoUrl == photoUrl) &&
+            (identical(other.photoPath, photoPath) ||
+                other.photoPath == photoPath) &&
             (identical(other.isActive, isActive) ||
                 other.isActive == isActive) &&
             (identical(other.createdAt, createdAt) ||
@@ -251,8 +257,8 @@ class _$AppUserImpl implements _AppUser {
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
-      runtimeType, uid, email, name, role, team, photoUrl, isActive, createdAt);
+  int get hashCode => Object.hash(runtimeType, uid, email, name, role, team,
+      photoPath, isActive, createdAt);
 
   /// Create a copy of AppUser
   /// with the given fields replaced by the non-null parameter values.
@@ -277,7 +283,7 @@ abstract class _AppUser implements AppUser {
       required final String name,
       required final UserRole role,
       required final UserTeam team,
-      final String? photoUrl,
+      final String? photoPath,
       final bool isActive,
       final DateTime? createdAt}) = _$AppUserImpl;
 
@@ -293,8 +299,11 @@ abstract class _AppUser implements AppUser {
   UserRole get role;
   @override
   UserTeam get team;
+
+  /// Object path of the avatar inside the storage bucket, not a URL — the
+  /// bucket is private, so a viewable link is minted on demand and expires.
   @override
-  String? get photoUrl;
+  String? get photoPath;
   @override
   bool get isActive;
   @override

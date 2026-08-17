@@ -1,0 +1,16 @@
+# Copy to android/key.properties and fill in. That file is gitignored —
+# never commit it, and never commit the .jks keystore either.
+#
+# Create the keystore once (keep the .jks and these passwords backed up
+# somewhere safe: losing them means the app can never be updated on Google
+# Play again):
+#
+#   keytool -genkey -v -keystore ~/be-human-upload.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+#
+storePassword=<the password you typed for the keystore>
+keyPassword=<the password you typed for the key, usually the same>
+keyAlias=upload
+# Absolute path is safest. On Windows use forward slashes:
+# storeFile=C:/Users/you/be-human-upload.jks
+storeFile=/home/you/be-human-upload.jks

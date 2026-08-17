@@ -26,6 +26,35 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+
+	<!-- iOS terminates the app outright when it asks for one of these and the
+	     reason is missing. Both are reachable from the same screen: the avatar
+	     picker offers "choose a photo" and "take a photo", and a transfer
+	     notice or an archive document may be a photograph too. Without these
+	     keys the app does not refuse — it crashes. -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Be Human needs access to your photos so you can attach a transfer notice, a document, or a profile picture.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Be Human needs access to your camera so you can photograph a transfer notice, a document, or a profile picture.</string>
+
+	<!-- Lets a notification arrive while the app is in the background. Without
+	     it, iOS only delivers while the app is open, which is the one case the
+	     push notification is not needed for. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+
+	<!-- The languages the app ships in. iOS reads this to decide which
+	     language its own dialogs — the notification and photo prompts above —
+	     appear in; without it every one of them is English regardless of the
+	     phone's setting. -->
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>ar</string>
+		<string>nl</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -1,0 +1,20 @@
+<!-- Status-bar icon for a push notification.
+
+     Android draws a notification icon from its alpha channel only: every
+     coloured pixel becomes white, and every opaque pixel becomes part of the
+     silhouette. A full-colour logo therefore arrives as a solid white blob,
+     which is what the launcher icon was doing here. This is a flat shape with
+     transparent space around it, so it renders as intended.
+
+     A heart rather than the full foundation mark: at 24dp in a status bar the
+     logo's lettering and ring are illegible, and an unreadable mark is worse
+     than a clear symbol. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,21.35l-1.45,-1.32C5.4,15.36 2,12.28 2,8.5 2,5.42 4.42,3 7.5,3c1.74,0 3.41,0.81 4.5,2.09C13.09,3.81 14.76,3 16.5,3 19.58,3 22,5.42 22,8.5c0,3.78 -3.4,6.86 -8.55,11.54L12,21.35z" />
+</vector>
