@@ -41,15 +41,22 @@ definitions:
 
 workflows:
   # --------------------------------------------------------------------------
-  # Does it build at all? Needs no Apple account whatsoever.
+  # An unsigned .ipa. Needs no Apple account whatsoever.
   #
-  # The result is NOT installable on a phone — an unsigned app cannot be. Its
-  # value is that nobody on this project has ever compiled the iOS side, so
-  # this is what tells you whether the Podfile, the deployment target and the
-  # Firebase setup are right, without spending $99 to find out.
+  # iOS refuses to install an unsigned app, so this one cannot be handed to
+  # anybody as it stands. Two things it is genuinely for:
+  #
+  #  * proving the build works. Nobody has ever compiled the iOS side of this
+  #    project, and this says whether the Podfile, the deployment target and
+  #    the Firebase config are right without spending $99 to find out.
+  #  * feeding a sideloader. Sideloadly or AltStore, on a Windows PC, re-sign
+  #    an unsigned ipa with an ordinary free Apple ID and install it over a
+  #    cable — good for seven days, then it has to be done again.
+  #
+  # For the team to actually keep the app, use ios-testflight below.
   # --------------------------------------------------------------------------
   ios-unsigned:
-    name: iOS — build check (no signing)
+    name: iOS — unsigned ipa (no Apple account)
     instance_type: mac_mini_m2
     max_build_duration: 60
     environment:
@@ -75,8 +82,24 @@ workflows:
           flutter build ios --release --no-codesign \
             --dart-define=SUPABASE_URL=$SUPABASE_URL \
             --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
+
+      # `flutter build ios` stops at a .app bundle. An .ipa is only that bundle
+      # inside a folder called Payload, zipped — there is no signing in the
+      # packaging itself, which is exactly why this step needs no certificate.
+      - name: Package it as an ipa
+        script: |
+          set -e
+          cd "$CM_BUILD_DIR"
+          rm -rf build/ios/unsigned
+          mkdir -p build/ios/unsigned/Payload
+          cp -R build/ios/iphoneos/Runner.app build/ios/unsigned/Payload/
+          cd build/ios/unsigned
+          # The folder must be named Payload and must be at the archive root;
+          # a sideloader rejects the file outright otherwise.
+          zip -qry be-human-unsigned.ipa Payload
+          ls -lh be-human-unsigned.ipa
     artifacts:
-      - build/ios/iphoneos/*.app
+      - build/ios/unsigned/*.ipa
       - /tmp/xcodebuild_logs/*.log
 
   # --------------------------------------------------------------------------

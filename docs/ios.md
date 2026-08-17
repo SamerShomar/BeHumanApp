@@ -19,7 +19,7 @@ So, honestly:
 
 | What you have | What you get |
 | --- | --- |
-| Codemagic, no Apple account | proof the app compiles for iOS — nothing installable |
+| Codemagic, no Apple account | an unsigned .ipa — sideloadable for 7 days, not shareable |
 | Codemagic + $99 program | TestFlight: the team installs it from a link, no cables |
 | A Mac + free Apple ID | installable, stops working every 7 days |
 | A Mac + $99 program | same as Codemagic + $99 |
@@ -42,7 +42,7 @@ rows above apply instead.
 
 | Workflow | What it does | Needs |
 | --- | --- | --- |
-| `ios-unsigned` | compiles iOS, proves the setup works | nothing but the Firebase file |
+| `ios-unsigned` | builds an **unsigned .ipa**; proves the setup works | nothing but the Firebase file |
 | `ios-testflight` | builds and sends to TestFlight | the $99 program |
 | `android-apk` | builds the Android APK | nothing extra |
 
@@ -93,13 +93,48 @@ Paste the result as the variable's value. The build decodes it back into
 a truncated paste fails the build with a clear reason instead of crashing on
 someone's phone later.
 
-### 3. Run `ios-unsigned`
+### 3. Run `ios-unsigned` to get an .ipa
 
-Press **Start new build**, pick the branch, pick `iOS — build check`. It runs
-the analyzer and the full test suite first, then compiles.
+Press **Start new build**, pick the branch, pick `iOS — unsigned ipa`. It runs
+the analyzer and the full test suite first, then compiles and packages.
+
+The artifact is **`be-human-unsigned.ipa`**, downloadable from the build page.
 
 If it goes green, the iOS side of this project is sound and the only thing
 between you and phones is the Apple account.
+
+### Getting that .ipa onto a phone
+
+An unsigned .ipa will not install on iOS — the system refuses it. It has to be
+signed by somebody, and there are only two ways.
+
+**Sideload it (free, seven days).** Tools like **Sideloadly** or **AltStore**
+run on Windows, take an unsigned .ipa, sign it with an ordinary free Apple ID,
+and install it over a cable. What you get:
+
+- works on your own phone, no Mac, no $99
+- **stops opening after 7 days** and has to be re-installed the same way
+- three apps at a time per Apple ID
+- every person needs their own PC session with the phone plugged in
+
+Fine for you to try the app. Not a way to give it to the Gaza and Netherlands
+teams — nobody is going to re-plug a phone into a laptop every week.
+
+**TestFlight ($99/year).** The `ios-testflight` workflow below builds a signed
+build and uploads it. Everyone installs from a link in Apple's TestFlight app,
+it lasts 90 days per build, and updates arrive on their own. This is the only
+arrangement that works for a team.
+
+| | Sideload | TestFlight |
+| --- | --- | --- |
+| Cost | free | $99/year |
+| Lasts | 7 days | 90 days, auto-updating |
+| Install | cable + PC, per phone | a link |
+| Notifications | no — needs a paid push certificate | yes |
+
+Note the last row: **push notifications do not work on a sideloaded build.**
+Apple issues APNs keys to paid accounts only, so a free-signed app installs and
+runs but never receives an alert.
 
 ### 4. When you have the $99 program
 
