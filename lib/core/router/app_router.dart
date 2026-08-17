@@ -18,6 +18,7 @@ import 'package:be_human_app/features/notifications/presentation/widgets/notific
 import 'package:be_human_app/features/admin/presentation/screens/admin_dashboard_screen.dart';
 import 'package:be_human_app/core/languages/app_localizations.dart';
 import 'package:be_human_app/core/providers/auth_state_provider.dart';
+import 'package:be_human_app/core/router/page_transitions.dart';
 import 'package:be_human_app/core/theme/app_colors.dart';
 import 'package:be_human_app/core/widgets/app_fab.dart';
 import 'package:be_human_app/features/archive/domain/archive_models.dart';
@@ -90,12 +91,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/archive/folder',
         name: 'archive-folder',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final folder = state.extra;
           // `extra` does not survive a restored or deep-linked route, so a
           // missing one returns to the archive rather than crashing on a cast.
-          if (folder is! ArchiveFolder) return const ArchiveScreen();
-          return ArchiveFolderScreen(folder: folder);
+          return AppTransitions.push(
+            state.pageKey,
+            folder is ArchiveFolder
+                ? ArchiveFolderScreen(folder: folder)
+                : const ArchiveScreen(),
+          );
         },
       ),
       // Tabs swap instantly. The default page transition slides a whole
@@ -110,43 +115,43 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/home',
             name: 'home',
             pageBuilder: (context, state) =>
-                const NoTransitionPage(child: HomeScreen()),
+                AppTransitions.tab(state.pageKey, const HomeScreen()),
           ),
           GoRoute(
             path: '/proposals',
             name: 'proposals',
             pageBuilder: (context, state) =>
-                const NoTransitionPage(child: ProposalsListScreen()),
+                AppTransitions.tab(state.pageKey, const ProposalsListScreen()),
           ),
           GoRoute(
             path: '/financial',
             name: 'financial',
             pageBuilder: (context, state) =>
-                const NoTransitionPage(child: FinanceScreen()),
+                AppTransitions.tab(state.pageKey, const FinanceScreen()),
           ),
           GoRoute(
             path: '/dashboard',
             name: 'dashboard',
             pageBuilder: (context, state) =>
-                const NoTransitionPage(child: AdminDashboardScreen()),
+                AppTransitions.tab(state.pageKey, const AdminDashboardScreen()),
           ),
           GoRoute(
             path: '/archive',
             name: 'archive',
             pageBuilder: (context, state) =>
-                const NoTransitionPage(child: ArchiveScreen()),
+                AppTransitions.tab(state.pageKey, const ArchiveScreen()),
           ),
           GoRoute(
             path: '/settings',
             name: 'settings',
             pageBuilder: (context, state) =>
-                const NoTransitionPage(child: SettingsScreen()),
+                AppTransitions.tab(state.pageKey, const SettingsScreen()),
           ),
           GoRoute(
             path: '/notifications',
             name: 'notifications',
             pageBuilder: (context, state) =>
-                const NoTransitionPage(child: NotificationsScreen()),
+                AppTransitions.tab(state.pageKey, const NotificationsScreen()),
           ),
         ],
       ),
@@ -300,16 +305,50 @@ class _GlassNavBar extends StatelessWidget {
           child: SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
+              child: Stack(
                 children: [
-                  for (var index = 0; index < items.length; index++)
-                    _NavButton(
-                      item: items[index],
-                      isSelected: selectedIndex == index,
-                      color: scheme.onSurface,
+                  // The highlight is one pill that travels, not a colour that
+                  // appears under the new tab while another disappears. Moving
+                  // it is what ties the two ends of a tap together — the eye
+                  // follows it across instead of relocating.
+                  if (selectedIndex >= 0)
+                    Positioned.fill(
+                      child: AnimatedAlign(
+                        duration: const Duration(milliseconds: 320),
+                        curve: Curves.easeOutCubic,
+                        // -1 is the first slot, 1 the last. With one item the
+                        // fraction would divide by zero, so it centres.
+                        alignment: Alignment(
+                          items.length == 1
+                              ? 0
+                              : (selectedIndex / (items.length - 1)) * 2 - 1,
+                          0,
+                        ),
+                        child: FractionallySizedBox(
+                          widthFactor: 1 / items.length,
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.brand.withOpacity(dark ? 0.20 : 0.14),
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.button),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
+                  Row(
+                    children: [
+                      for (var index = 0; index < items.length; index++)
+                        _NavButton(
+                          item: items[index],
+                          isSelected: selectedIndex == index,
+                          color: scheme.onSurface,
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -343,27 +382,53 @@ class _NavButton extends StatelessWidget {
         child: InkWell(
           onTap: () => context.go(item.route),
           borderRadius: BorderRadius.circular(AppRadius.button),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
+          // Transparent: the highlight behind it is drawn once by the bar and
+          // slides, rather than each button painting its own.
+          child: Padding(
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-            decoration: BoxDecoration(
-              color: isSelected ? AppColors.brand.withOpacity(0.14) : Colors.transparent,
-              borderRadius: BorderRadius.circular(AppRadius.button),
-            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(item.icon, color: tint, size: 22),
+                // The icon lifts and grows a little as it takes selection,
+                // which is what makes the tap feel answered rather than just
+                // obeyed.
+                TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0, end: isSelected ? 1 : 0),
+                  duration: const Duration(milliseconds: 320),
+                  curve: Curves.easeOutBack,
+                  builder: (context, t, _) => Transform.translate(
+                    offset: Offset(0, -2 * t),
+                    child: Transform.scale(
+                      // `easeOutBack` overshoots past 1, so the icon springs
+                      // slightly beyond its size and settles back.
+                      scale: 1 + 0.12 * t,
+                      // Lerped inside the builder rather than passed as a
+                      // fixed child: the colour then travels with the motion
+                      // instead of snapping at the start of it.
+                      child: Icon(
+                        item.icon,
+                        size: 22,
+                        color: Color.lerp(color.withOpacity(0.55),
+                            AppColors.brand, t.clamp(0.0, 1.0)),
+                      ),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(
-                  item.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.labelSmall?.copyWith(
+                // Colour and weight cross-fade rather than snapping.
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOut,
+                  style: theme.textTheme.labelSmall!.copyWith(
                     color: tint,
                     fontSize: 10,
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                  child: Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ],
