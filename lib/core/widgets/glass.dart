@@ -17,6 +17,25 @@ class AppBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        // Rasterised once and reused. Four overlapping gradients — one linear,
+        // three radial — is not cheap to draw, and without a boundary they are
+        // redrawn on every frame the app above them animates or scrolls. They
+        // never change, so a boundary turns that per-frame cost into a texture
+        // the GPU simply blits.
+        const RepaintBoundary(child: _Backdrop()),
+        child,
+      ],
+    );
+  }
+}
+
+class _Backdrop extends StatelessWidget {
+  const _Backdrop();
+
+  @override
+  Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
 
     return Stack(
@@ -59,8 +78,6 @@ class AppBackground extends StatelessWidget {
           color: (dark ? AppColors.success : AppColors.brand).withOpacity(dark ? 0.14 : 0.15),
           size: 440,
         ),
-
-        child,
       ],
     );
   }
@@ -152,14 +169,19 @@ class GlassCard extends StatelessWidget {
       );
     }
 
+    // A blurred shadow is drawn per card, and a list shows several at once —
+    // this was a 24px blur offset 10px down, which is a wide, soft shadow and
+    // the most expensive thing a row does. Tightened to roughly half the blur
+    // and a shorter drop: the card still lifts off the backdrop, at a fraction
+    // of the cost, and the difference is barely visible on a soft gradient.
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: shape,
         boxShadow: [
           BoxShadow(
             color: AppColors.glassShadow(dark),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+            blurRadius: 13,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -198,9 +220,15 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
 
+    // The blur runs on every frame the app draws — this bar is always on
+    // screen, so it is a full-width GPU pass behind every scroll and every
+    // animation. Blur cost rises with sigma, and over a backdrop that is
+    // already a soft gradient, halving it is close to invisible. Kept rather
+    // than removed: content really does scroll under this bar, and the blur is
+    // what separates the two.
     return ClipRect(
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        filter: ImageFilter.blur(sigmaX: 9, sigmaY: 9),
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: dark

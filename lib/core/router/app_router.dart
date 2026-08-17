@@ -295,8 +295,10 @@ class _GlassNavBar extends StatelessWidget {
 
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.card)),
+      // See GlassAppBar: this is the second always-on blur pass, and the wider
+      // of the two. Halved for the same reason.
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        filter: ImageFilter.blur(sigmaX: 11, sigmaY: 11),
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: dark ? Colors.white.withOpacity(0.06) : Colors.white.withOpacity(0.55),
