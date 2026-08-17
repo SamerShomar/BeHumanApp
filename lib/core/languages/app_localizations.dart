@@ -167,6 +167,9 @@ class AppLocalizations {
       'clear_filter': 'Clear filter',
       'delete': 'Delete',
       'delete_proposal_confirm': 'Delete this proposal? This cannot be undone.',
+      'delete_decided_proposal_confirm':
+          'This proposal has already been decided. Deleting it removes it from '
+          'the record for everyone, along with its file. This cannot be undone.',
       'proposal_deleted': 'Proposal deleted',
       'transaction_deleted': 'Movement deleted',
       'delete_transaction_confirm': 'Delete this financial movement? This cannot be undone.',
@@ -407,6 +410,9 @@ class AppLocalizations {
       'clear_filter': 'إلغاء الفلترة',
       'delete': 'حذف',
       'delete_proposal_confirm': 'حذف هذا المقترح؟ لا يمكن التراجع.',
+      'delete_decided_proposal_confirm':
+          'تم البتّ في هذا المقترح مسبقاً. حذفه بيشيله من السجل عند الجميع مع '
+          'ملفه المرفق. لا يمكن التراجع.',
       'proposal_deleted': 'تم حذف المقترح',
       'transaction_deleted': 'تم حذف الحركة',
       'delete_transaction_confirm': 'حذف هذه الحركة المالية؟ لا يمكن التراجع.',
@@ -648,6 +654,9 @@ class AppLocalizations {
       'clear_filter': 'Filter wissen',
       'delete': 'Verwijderen',
       'delete_proposal_confirm': 'Dit voorstel verwijderen? Dit kan niet ongedaan worden gemaakt.',
+      'delete_decided_proposal_confirm':
+          'Over dit voorstel is al beslist. Verwijderen haalt het voor iedereen '
+          'uit het dossier, inclusief het bestand. Dit kan niet ongedaan worden gemaakt.',
       'proposal_deleted': 'Voorstel verwijderd',
       'transaction_deleted': 'Mutatie verwijderd',
       'delete_transaction_confirm': 'Deze financiële mutatie verwijderen? Dit kan niet ongedaan worden gemaakt.',

@@ -12,6 +12,7 @@ import 'package:be_human_app/core/widgets/app_fab.dart';
 import 'package:be_human_app/core/widgets/glass.dart';
 import 'package:be_human_app/core/widgets/state_views.dart';
 import 'package:be_human_app/core/widgets/status_chip.dart';
+import 'package:be_human_app/features/proposals/domain/proposal_permissions.dart';
 import 'package:be_human_app/features/proposals/domain/proposal_status.dart';
 import 'package:be_human_app/core/services/file_storage_service.dart';
 import 'package:be_human_app/features/admin/presentation/providers/admin_providers.dart';
@@ -187,14 +188,13 @@ class ProposalsListScreen extends ConsumerWidget {
     Map<String, dynamic> p,
     AppUser? user,
   ) async {
-    final isReviewer = user != null && (user.team == UserTeam.netherlands || user.isAdmin);
     final storagePath = p['pdfPath'] is String ? p['pdfPath'] as String : null;
+    final isReviewer = ProposalPermissions.canDecide(user);
+    final canDelete = ProposalPermissions.canDelete(user, p);
 
-    // Submitters may withdraw their own proposal while it is still pending.
-    // Once reviewed it is part of the record, so it stays.
-    final canDelete = user != null &&
-        p['submittedBy'] == user.uid &&
-        ProposalStatus.isPending(p['status']);
+    // Removing something already decided is a different act from withdrawing
+    // a draft, so it asks a different question.
+    final isDecided = !ProposalStatus.isPending(p['status']);
 
     await showDialog<void>(
       context: context,
@@ -240,6 +240,7 @@ class ProposalsListScreen extends ConsumerWidget {
               _DeleteProposalButton(
                 proposalId: p['id'] as String,
                 storagePath: storagePath,
+                isDecided: isDecided,
               ),
             if (isReviewer) ...[
               _StatusButton(
@@ -382,12 +383,24 @@ class _StatusButton extends ConsumerWidget {
   }
 }
 
-/// Withdraws a pending proposal, with a confirmation step.
+/// Removes a proposal, with a confirmation step.
+///
+/// Reached two ways: a submitter withdrawing their own pending proposal, or an
+/// admin removing one at any status.
 class _DeleteProposalButton extends ConsumerWidget {
-  const _DeleteProposalButton({required this.proposalId, this.storagePath});
+  const _DeleteProposalButton({
+    required this.proposalId,
+    this.storagePath,
+    this.isDecided = false,
+  });
 
   final String proposalId;
   final String? storagePath;
+
+  /// Whether the proposal has already been accepted or rejected. Only changes
+  /// what the confirmation says — removing a decided proposal takes something
+  /// out of the record, and the question should say so.
+  final bool isDecided;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -402,7 +415,12 @@ class _DeleteProposalButton extends ConsumerWidget {
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (confirm) => AlertDialog(
-            content: Text(AppLocalizations.of(context, 'delete_proposal_confirm')),
+            content: Text(AppLocalizations.of(
+              context,
+              isDecided
+                  ? 'delete_decided_proposal_confirm'
+                  : 'delete_proposal_confirm',
+            )),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(confirm).pop(false),
