@@ -21,6 +21,22 @@ definitions:
         flutter analyze
         flutter test
 
+    # Flutter 3.44 turns Swift Package Manager on by default for iOS, and the
+    # Firebase versions this app pins predate working SPM support:
+    # firebase_core 3.6.0's Package.swift reads firebase_sdk_version.rb from a
+    # path that only exists in the CocoaPods layout, so xcodebuild dies with
+    #
+    #   Package.swift:75: Fatal error: Failed to load configuration:
+    #   fileNotFound … firebase_sdk_version.rb
+    #
+    # before compiling a single file. The Xcode project has had its SPM
+    # integration removed, and ios/Podfile has always been the real
+    # configuration; this stops Flutter putting SPM back on the build machine.
+    - &use_cocoapods
+      name: Use CocoaPods, not Swift Package Manager
+      script: |
+        flutter config --no-enable-swift-package-manager
+
     # GoogleService-Info.plist is not in the repository and the app cannot
     # start without it. It is stored as a base64 environment variable and
     # written back here — base64 because Codemagic variables are single-line
@@ -67,6 +83,7 @@ workflows:
         - supabase
         - firebase-ios
     scripts:
+      - *use_cocoapods
       - *analyze
       - *write_firebase_plist
       # Both Supabase values are compile-time constants read through
@@ -127,6 +144,7 @@ workflows:
         distribution_type: app_store
         bundle_identifier: com.behuman.beHumanApp
     scripts:
+      - *use_cocoapods
       - *analyze
       - *write_firebase_plist
       - name: Build the ipa
